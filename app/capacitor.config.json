@@ -1,0 +1,7 @@
+{
+  "appId": "com.fall_lux.reader",
+  "appName": "Fall-Lux",
+  "webDir": "dist",
+  "backgroundColor": "#120b06",
+  "android": { "allowMixedContent": false }
+}
