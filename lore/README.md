@@ -15,13 +15,9 @@
 
 원문에 이름만 나오고 내용은 아직 받지 않은 문서들입니다.
 
-- 성역의 경계(Sacred Boundary)
-- 대차원(Outerspace)
 - 운명선(Fate line)
 - Character 캐릭터
 - 관문(Gateway) / 협곡 관문(Rift - Gateway)
-- 왜곡된 관문(Distorted gateway)
 - 종족(Races)
-- 초월자(Transcendent)
 - 아케디아(Acédĭa)
 - Rasyancut 세계관[Legacy] — 원본 노션 링크: https://app.notion.com/p/Rasyancut-Legacy-3ebdfec2df6e80f6925cfb39afc9bc94?pvs=21
