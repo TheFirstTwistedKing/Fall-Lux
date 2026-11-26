@@ -1,0 +1,27 @@
+# 추락하는 불빛 (Fall-Lux) — 세계관 설정집
+
+라시안컷(Rasyancut) 세계를 기반으로 한 세계관 **'추락하는 불빛'**의 설정 문서 모음입니다.
+
+## 문서 목록
+
+| 번호 | 문서 | 내용 |
+| --- | --- | --- |
+| 01 | [라시안컷(Rasyancut)](01_라시안컷.md) | 차원의 단위, 라시안컷의 탄생, 나스켄티아, 세계관 전체 요약 |
+| 02 | [빛과 어둠 (Light and Dark)](02_빛과_어둠.md) | 라시안컷·차원의 틈에서의 빛과 어둠, 검은 물질, 순수성, 정화 |
+| 03 | [차원의 틈(Interspace)](03_차원의_틈.md) | 신이 추방되는 공간, 반전 규칙, 침식 |
+| 04 | [에테로스(Aetheros)](04_에테로스.md) | 에테로스, 신, 아케디아, 물질 변환, 메커니즘 |
+
+## 연결되어 있지만 아직 저장되지 않은 문서
+
+원문에 이름만 나오고 내용은 아직 받지 않은 문서들입니다.
+
+- 성역의 경계(Sacred Boundary)
+- 대차원(Outerspace)
+- 운명선(Fate line)
+- Character 캐릭터
+- 관문(Gateway) / 협곡 관문(Rift - Gateway)
+- 왜곡된 관문(Distorted gateway)
+- 종족(Races)
+- 초월자(Transcendent)
+- 아케디아(Acédĭa)
+- Rasyancut 세계관[Legacy] — 원본 노션 링크: https://app.notion.com/p/Rasyancut-Legacy-3ebdfec2df6e80f6925cfb39afc9bc94?pvs=21
