@@ -76,13 +76,19 @@ void main(){
   vec3 L=normalize(uSun-vW); vec3 V=normalize(cameraPosition-vW);
   vec3 col=uC1; vec3 emis=vec3(0.);
   if(uMode==0){                       // 하늘빛 줄무늬 + 소용돌이 눈
-    float t=dot(p,normalize(vec3(.55,1.,.25)))*10.+fbm(p*2.2+uSeed)*1.8;
-    col=mix(uC1,uC2,smoothstep(.25,.75,.5+.5*sin(t)));
+    vec3 ax=normalize(vec3(.55,1.,.25));
+    float turb=fbm(p*2.4+uSeed);
+    float band=sin(dot(p,ax)*14.+turb*1.0);
+    float bands=pow(max(0.,band*.5+.5),2.4);                   // 띠를 날카롭게 (cosmic-orb 방식)
+    float lane=fbm(p*5.+vec3(uSeed*1.7));
+    col=mix(uC1,uC2,bands);
+    col=mix(col,uC1*.62,smoothstep(.15,.55,lane)*.3);           // 띠 사이의 옅은 먼지 결
     vec3 eye=normalize(vec3(.3,.15,.94)); vec3 e1=normalize(cross(eye,vec3(0.,1.,0.))); vec3 e2=cross(eye,e1);
     vec2 q=vec2(dot(p,e1),dot(p,e2)); float r=length(q); float a=atan(q.y,q.x);
-    float spiral=.5+.5*sin(a*2.+r*38.-uTime*.6);
-    float mask=smoothstep(.34,.04,r)*step(0.,dot(p,eye));
-    col=mix(col,uC3,mask*spiral*.85);
+    float spiral=.5+.5*sin(a*2.+r*30.-uTime*.5);
+    float mask=smoothstep(.3,.08,r)*step(0.,dot(p,eye));
+    col=mix(col,uC3,mask*(.35+.65*spiral));
+    col=mix(col,uC2*1.15,smoothstep(.045,.0,r)*step(0.,dot(p,eye)));   // 눈동자
   } else if(uMode==1){                // 제 1 행성: 푸른 잿빛 바위 + 남색 균열
     float f=fbm(p*2.6+uSeed);
     col=mix(uC1*.86,uC1*1.12,smoothstep(-.4,.5,f));
@@ -94,12 +100,13 @@ void main(){
     float edge=smoothstep(.17,.145,band)-smoothstep(.13,.1,band);
     emis+=vec3(.62,.42,1.)*max(edge,0.)*.55;                    // 결정이 박힌 균열 가장자리의 보랏빛
   } else if(uMode==2){                // 노란 항성: 끓는 표면
-    float f=fbm(p*3.+vec3(0.,uTime*.06,uTime*.03)+uSeed);
-    float g=fbm(p*9.-vec3(uTime*.1,0.,0.));
-    col=mix(uC1,uC2,smoothstep(-.5,.6,f));
-    col=mix(col,uC3,smoothstep(.35,.8,g)*.6);
-    float limb=pow(max(dot(n,V),0.),.45);
-    gl_FragColor=vec4(col*(.75+.65*limb)*1.2,1.); return;
+    float mu=max(dot(n,V),0.);
+    float big=fbm(p*3.+vec3(0.,uTime*.05,uTime*.03)+uSeed);
+    float gran=snoise(p*22.+vec3(0.,uTime*.12,0.));               // 잘고 낮은 대비 (덩어리지지 않게)
+    float limb=pow(mu,.9);
+    col=mix(uC1*.85,mix(uC2,uC3,limb*limb),limb);                // 가장자리 주황 → 가운데 흰빛
+    col*=.86+.14*big+.08*gran;
+    gl_FragColor=vec4(col*.88,1.); return;
   } else if(uMode==3){                // 청록 아메바 + 초록 균열
     float f=fbm(p*2.4+uSeed);
     col=mix(uC1,uC2,smoothstep(-.4,.6,f));
@@ -140,31 +147,38 @@ void main(){
   float fres=pow(1.-abs(dot(n,V)),2.2);
   float core=1.-clamp(abs(vL.y)/uLen,0.,1.);
   float flow=.5+.5*snoise(vec3(vL.y*1.6-uTime*.35,vL.x*3.,vL.z*3.));
-  vec3 col=mix(uC1,uC2,clamp(core*.55+fres*.5+flow*.18,0.,1.));
+  vec3 col=mix(uC1,uC2,clamp(core*.5+fres*.55+flow*.2,0.,1.));
   float diff=max(dot(n,L),0.);
   float spec=pow(max(dot(reflect(-L,n),V),0.),28.);
-  vec3 c=col*(.32+.7*diff)+vec3(1.,.95,1.)*spec*.9+uC2*fres*.55+uC2*core*core*.35;
+  float veins=smoothstep(.72,.97,snoise(vec3(vL.y*1.2-uTime*.3,vL.x*2.5,vL.z*2.5)));   // 길쭉한 빛줄기 (점처럼 흩어지지 않게)
+  float edge=pow(1.-abs(dot(n,V)),6.);                            // 실루엣 모서리의 가는 빛
+  vec3 c=col*(.28+.62*diff)+vec3(1.,.95,1.)*spec+uC2*fres*.7+uC2*core*core*.45+vec3(1.,.9,1.)*veins*core*.35+vec3(.95,.85,1.)*edge*1.1;
   gl_FragColor=vec4(c,1.);
 }`;
 
 /* 고리 */
 const RING_VS = /* glsl */`varying vec2 vUv; varying vec3 vP; void main(){vUv=uv;vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
-const RING_FS = /* glsl */`uniform vec3 uC1; uniform vec3 uC2; uniform float uIn; uniform float uOut; uniform float uTime; uniform int uKind;
+const RING_FS = /* glsl */`uniform vec3 uC1; uniform vec3 uC2; uniform float uIn; uniform float uOut; uniform float uTime; uniform int uKind; uniform float uArc;
 varying vec2 vUv; varying vec3 vP;
 ${NOISE}
 void main(){
   float r=length(vP.xy); float t=(r-uIn)/(uOut-uIn);
   if(uKind==0){                                     // 행성 고리: 결이 있는 띠
-    float bands=.5+.5*sin(t*48.+snoise(vec3(t*9.,0.,0.))*3.);
-    float a=smoothstep(0.,.08,t)*smoothstep(1.,.85,t)*(.25+.55*bands);
-    gl_FragColor=vec4(mix(uC1,uC2,bands)*1.1,a*.8);
+    float n1=snoise(vec3(t*12.,1.3,0.))*.5+.5;
+    float n2=snoise(vec3(t*34.,7.1,0.))*.5+.5;
+    float dens=mix(.3,1.,n1)*(.8+.2*n2);
+    dens*=1.-.92*smoothstep(.035,.0,abs(t-.63)-.012);             // 고리 사이의 틈
+    float a=smoothstep(0.,.06,t)*smoothstep(1.,.88,t)*dens;
+    gl_FragColor=vec4(mix(uC1,uC2,n1)*1.05,a*.62);
   } else {                                          // 강착원반: 안쪽이 뜨겁고 소용돌이친다
     float ang=atan(vP.y,vP.x);
     float sw=snoise(vec3(cos(ang)*2.,sin(ang)*2.,t*4.-uTime*.6)+vec3(t*6.,0.,0.));
     float heat=pow(1.-t,2.2);
     vec3 c=mix(uC2,uC1,heat)+vec3(1.,.95,.85)*pow(1.-t,10.)*.8;
-    float a=smoothstep(0.,.04,t)*smoothstep(1.,.55,t)*(.45+.45*sw)*.8;
-    gl_FragColor=vec4(c*(.75+.4*sw),a);
+    float a=smoothstep(0.,.04,t)*smoothstep(1.,.55,t)*(.6+.3*sw)*.8;
+    float dop=.55+.9*(.5+.5*cos(ang+.6));                          // 다가오는 쪽이 더 밝다
+    if(uArc>.5){ a*=smoothstep(0.,.6,sin(ang)); dop=1.; }           // 휘어진 빛의 호: 양 끝이 서서히 사라진다
+    gl_FragColor=vec4(c*(.7+.35*sw)*dop,a);
   }
 }`;
 
@@ -200,13 +214,17 @@ const GlitchShader = {
     float row=floor(uv.y*rows);
     float r=h(vec2(row,uSeed));
     float shift=step(.58,r)*(h(vec2(row,uSeed+3.))-.5)*.22*uAmt;
-    float block=step(.92,h(vec2(floor(uv.y*7.),uSeed+9.)))*(h(vec2(floor(uv.x*5.),uSeed))-.5)*.08*uAmt;
-    uv.x+=shift+block;
+    vec2 cell=floor(vUv*vec2(12.,8.));                                   // 12×8 격자 조각이 따로 밀린다 (HyperFrames glitch 참고)
+    float ca=step(.83,h(cell+vec2(uSeed)))*uAmt;
+    vec2 bd=(vec2(h(cell*2.1+uSeed),h(cell*3.7+uSeed))-.5)*.2*ca;
+    uv=clamp(uv+vec2(shift,0.)+bd,0.,1.);
     float sp=.012*uAmt*(.5+r);
     vec4 c=texture2D(tDiffuse,uv);
     c.r=texture2D(tDiffuse,uv+vec2(sp,0.)).r;
     c.b=texture2D(tDiffuse,uv-vec2(sp,0.)).b;
     float scan=.92+.08*sin(vUv.y*900.);
+    float levels=mix(256.,10.,uAmt*.6);                                  // 색 단계를 줄인다 (밝기는 내려가기만 한다)
+    c.rgb=floor(c.rgb*levels)/levels;
     gl_FragColor=vec4(c.rgb*mix(1.,scan,uAmt),1.);
   }`
 };
@@ -381,7 +399,7 @@ export function createMap(container, hooks) {
         break;
       }
       case "striped": {
-        const m = new THREE.Mesh(new THREE.SphereGeometry(r, 64, 40), planetMaterial(0, "#7ec8ea", "#b9e6fb", "#2f6f9a", "#9fe0ff", 5.5));
+        const m = new THREE.Mesh(new THREE.SphereGeometry(r, 64, 40), planetMaterial(0, "#2f7fb8", "#a6dcf5", "#123a63", "#9fe0ff", 5.5));
         m.rotation.z = 0.35; g.add(m); spin.push([m, 0.05]);
         g.add(atmosphere(r * 1.14, "#86d4ff", 3, 1.25));
         break;
@@ -392,13 +410,13 @@ export function createMap(container, hooks) {
         g.add(atmosphere(r * 1.12, "#ff5a4a", 3.2, 1.1));
         const inR = r * 1.35, outR = r * 2.35;
         const ring = new THREE.Mesh(new THREE.RingGeometry(inR, outR, 120, 1), new THREE.ShaderMaterial({
-          uniforms: { uC1: { value: col("#b8453c") }, uC2: { value: col("#e6a19a") }, uIn: { value: inR }, uOut: { value: outR }, uTime: T, uKind: { value: 0 } },
+          uniforms: { uC1: { value: col("#b8453c") }, uC2: { value: col("#e6a19a") }, uIn: { value: inR }, uOut: { value: outR }, uTime: T, uKind: { value: 0 }, uArc: { value: 0 } },
           vertexShader: RING_VS, fragmentShader: RING_FS, side: THREE.DoubleSide, transparent: true, depthWrite: false }));
         ring.rotation.set(-Math.PI / 2 + 0.35, 0.25, 0); g.add(ring);
         break;
       }
       case "sun": {
-        const m = new THREE.Mesh(new THREE.SphereGeometry(r, 64, 40), planetMaterial(2, "#ffb22e", "#fff2a0", "#ffffff", "#000000", 4.4));
+        const m = new THREE.Mesh(new THREE.SphereGeometry(r, 64, 40), planetMaterial(2, "#e8640f", "#ffb52e", "#ffe08a", "#000000", 4.4));
         g.add(m); spin.push([m, 0.02]);
         g.add(glowSprite("rgba(255,236,160,.75)", "rgba(255,200,70,.22)", r * 4.2));
         g.add(glowSprite("rgba(255,240,200,.25)", "rgba(255,216,74,.05)", r * 8));
@@ -425,7 +443,7 @@ export function createMap(container, hooks) {
         const main = new THREE.Mesh(new THREE.OctahedronGeometry(r, 0), cm); main.scale.set(0.62, 1.55, 0.62); g.add(main);
         spin.push([main, 0.12]);
         /* 붉은 균열: 늘 앞쪽에서 보이도록 카메라 쪽을 본다 */
-        const crack = new THREE.Mesh(new THREE.PlaneGeometry(0.06, r * 1.6), new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false }));
+        const crack = new THREE.Mesh(new THREE.PlaneGeometry(0.045, r * 1.05), new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false }));
         g.add(crack);
         const cg = glowSprite("rgba(255,120,110,.9)", "rgba(255,40,40,.35)", r * 1.4); g.add(cg);
         tick.push(t => { cg.material.opacity = 0.6 + 0.4 * Math.sin(t * 2.1); crack.lookAt(camera.position); crack.rotateZ(0.45); });
@@ -434,7 +452,7 @@ export function createMap(container, hooks) {
           s.position.set(sd * r * 1.25, 0.1, 0); g.add(s); spin.push([s, -0.25 * sd]);
           tick.push(t => { s.position.y = 0.1 + Math.sin(t * 0.8 + sd) * 0.12; });
         });
-        g.add(glowSprite("rgba(140,150,255,.5)", "rgba(70,80,220,.18)", r * 4));
+        g.add(glowSprite("rgba(140,150,255,.35)", "rgba(70,80,220,.1)", r * 2.6));
         break;
       }
       case "amoeba": {
@@ -445,22 +463,27 @@ export function createMap(container, hooks) {
       }
       case "blackhole": {
         g.add(new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), new THREE.MeshBasicMaterial({ color: 0x000000 })));
-        const inR = r * 1.35, outR = r * 3.6;
+        const inR = r * 1.35, outR = r * 3.0;
         const disk = new THREE.Mesh(new THREE.RingGeometry(inR, outR, 120, 1), new THREE.ShaderMaterial({
-          uniforms: { uC1: { value: col("#fff0b0") }, uC2: { value: col("#8a7a2a") }, uIn: { value: inR }, uOut: { value: outR }, uTime: T, uKind: { value: 1 } },
+          uniforms: { uC1: { value: col("#fff0b0") }, uC2: { value: col("#8a7a2a") }, uIn: { value: inR }, uOut: { value: outR }, uTime: T, uKind: { value: 1 }, uArc: { value: 0 } },
           vertexShader: RING_VS, fragmentShader: RING_FS, side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
         disk.rotation.set(-Math.PI / 2 + 0.28, 0.3, 0.2); g.add(disk);
         /* 광자 고리: 늘 카메라를 보는 가는 빛 고리 (휘어진 빛을 흉내) */
-        const halo = new THREE.Mesh(new THREE.RingGeometry(r * 1.02, r * 1.2, 96, 1), new THREE.MeshBasicMaterial({ color: 0xd88cff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
-        g.add(halo);
-        tick.push(() => halo.lookAt(camera.position));
+        const halo = new THREE.Mesh(new THREE.RingGeometry(r * 1.02, r * 1.075, 128, 1), new THREE.MeshBasicMaterial({ color: 0xffe9b8, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+        /* 원반 뒷면이 중력에 휘어 블랙홀 위로 넘어와 보이는 빛의 호 */
+        const lens = new THREE.Mesh(new THREE.RingGeometry(r * 1.12, r * 2.1, 128, 1, 0, Math.PI), new THREE.ShaderMaterial({
+          uniforms: { uC1: { value: col("#fff0b0") }, uC2: { value: col("#8a7a2a") }, uIn: { value: r * 1.12 }, uOut: { value: r * 2.1 }, uTime: T, uKind: { value: 1 }, uArc: { value: 1 } },
+          vertexShader: RING_VS, fragmentShader: RING_FS, side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+        const bill = new THREE.Group(); bill.add(halo, lens); g.add(bill);
+        tick.push(() => bill.lookAt(camera.position));
         break;
       }
       case "comet": {
         const dir = b.tail.clone().normalize();
         const head = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), new THREE.MeshBasicMaterial({ color: col(b.color).multiplyScalar(1.4) }));
         g.add(head);
-        g.add(glowSprite("rgba(255,255,255,.95)", b.glow, r * 9));
+        g.add(glowSprite("rgba(255,255,255,.95)", b.glow, r * 4.5));
+        g.add(glowSprite(b.glow.replace(/[\d.]+\)$/, ".3)"), b.glow.replace(/[\d.]+\)$/, ".06)"), r * 11));
         const N = 700, pos = new Float32Array(N * 3), at = new Float32Array(N), off = new Float32Array(N * 3);
         for (let i = 0; i < N; i++) {
           at[i] = Math.random();
@@ -622,6 +645,7 @@ export function createMap(container, hooks) {
   /* ── 글리치 전환 ── */
   let glitchRun = null;
   function runGlitch(ms, done) {
+    if (glitchRun) return;                               // 진행 중이면 무시 (두 번 눌러도 한 번만 넘어간다)
     if (REDUCED) { done(); return; }
     glitch.enabled = true; glitchRun = { start: performance.now(), ms };
     /* 전환 시각은 프레임 속도와 상관없이 타이머로 정확히 맞춘다 */
@@ -685,6 +709,6 @@ export function createMap(container, hooks) {
     select, deselect, step, runGlitch,
     selectedId: () => selected,
     tier: () => tier,
-    debug: { camera, items, renderer, controls }
+    debug: { camera, items, renderer, controls, glitch: () => ({ enabled: glitch.enabled, amt: glitch.uniforms.uAmt.value, running: !!glitchRun }) }
   };
 }

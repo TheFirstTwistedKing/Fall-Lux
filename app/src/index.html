@@ -220,9 +220,14 @@ body:not(.home) .mark{opacity:0}
 @keyframes nodePulse{0%{opacity:.85;transform:scale(.85)}100%{opacity:0;transform:scale(1.5)}}
 /* 행성 안으로 들어올 때: 짧게 찢어지듯 맞춰지는 화면 (밝게 번쩍이지 않는다) */
 #planet.glitch-in{animation:glitchIn .12s steps(4,end) both}
+/* 입장 순간: 지도 위의 글자도 3D 화면과 함께 찢어지고 색이 갈라진다 (밝기는 그대로) */
+#map.glitching .panel,#map.glitching .back,#map.glitching .map-step{animation:uiGlitch .28s steps(7,end) both;text-shadow:2px 0 rgba(255,40,60,.75),-2px 0 rgba(40,200,255,.75)}
+@keyframes uiGlitch{0%{clip-path:inset(0);transform:none}14%{clip-path:inset(12% 0 64% 0);transform:translateX(-10px)}28%{clip-path:inset(52% 0 14% 0);transform:translateX(9px)}
+  42%{clip-path:inset(0 0 78% 0);transform:translateX(-14px)}57%{clip-path:inset(34% 0 30% 0);transform:translateX(6px)}71%{clip-path:inset(70% 0 4% 0);transform:translateX(-5px)}
+  86%{clip-path:inset(20% 0 52% 0);transform:translateX(12px)}100%{clip-path:inset(46% 0 46% 0);transform:none;opacity:0}}
 @keyframes glitchIn{0%{clip-path:inset(8% 0 58% 0);transform:translateX(-14px)}25%{clip-path:inset(46% 0 18% 0);transform:translateX(11px)}
   50%{clip-path:inset(0 0 72% 0);transform:translateX(-6px)}75%{clip-path:inset(28% 0 26% 0);transform:translateX(4px)}100%{clip-path:inset(0);transform:none}}
-@media (prefers-reduced-motion:reduce){.node.open::after{animation:none;opacity:.6;transform:none}#planet.glitch-in{animation:none}}
+@media (prefers-reduced-motion:reduce){.node.open::after{animation:none;opacity:.6;transform:none}#planet.glitch-in,#map.glitching .panel,#map.glitching .back,#map.glitching .map-step{animation:none;text-shadow:none}}
 </style>
 </head>
 <body class="home">
@@ -305,6 +310,11 @@ body:not(.home) .mark{opacity:0}
    데이터
    ════════════════════════════════════════════════ */
 const NOTICES = [
+  { name: "Patch v-3.1.0", date: "2026-11-27", items: [
+    "3D 지도의 행성 · 항성 · 블랙홀 · 혜성 표현을 다듬었습니다.",
+    "입장할 때의 글리치가 더 뚜렷해졌고(조각 밀림 · 색 단계 줄이기), 지도 위 글자도 함께 흔들립니다. 화면이 밝게 번쩍이지는 않습니다.",
+    "'입장'을 여러 번 눌러도 한 번만 넘어가도록 고쳤습니다."
+  ]},
   { name: "Patch v-3.0.0", date: "2026-11-27", items: [
     "시작을 누르면 3D 행성 지도가 열립니다. 끌어서 돌리고, 휠이나 두 손가락으로 확대할 수 있습니다.",
     "천체를 누르면 위치 · 설명 · 외부 묘사가 나타납니다. '이전 천체 / 다음 천체' 버튼으로도 둘러볼 수 있습니다.",
@@ -506,7 +516,8 @@ const Map3D = (() => {
     $("biEnter").onclick = () => {
       if (!body || body.locked || body.kind !== "planet") return;
       const pid = body.planetId;
-      map.runGlitch(280, () => { Story.planet = pid; go("planet"); });
+      $("map").classList.add("glitching");
+      map.runGlitch(280, () => { $("map").classList.remove("glitching"); Story.planet = pid; go("planet"); });
     };
   }
   return {
