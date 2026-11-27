@@ -29,12 +29,13 @@
     }
   },
   "devDependencies": {
-    "electron": "33.2.1",
-    "electron-builder": "25.1.8",
+    "@capacitor/android": "6.2.0",
+    "@capacitor/app": "6.0.2",
     "@capacitor/cli": "6.2.0",
     "@capacitor/core": "6.2.0",
-    "@capacitor/android": "6.2.0",
-    "@capacitor/app": "6.0.2"
-  },
-  "dependencies": {}
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8",
+    "esbuild": "^0.24.0",
+    "three": "^0.170.0"
+  }
 }
