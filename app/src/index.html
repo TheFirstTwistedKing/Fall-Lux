@@ -159,6 +159,70 @@ body:not(.home) .mark{opacity:0}
   #grain{animation:none}
   .menu button:hover{transform:none}
 }
+
+/* ════════ 행성 지도 · 행성 안 ════════ */
+.layer{position:fixed;inset:0;background:var(--c-space)}
+.layer[hidden]{display:none}
+.map-gl,.story-root{position:absolute;inset:0;overflow:hidden}
+/* 위아래 가장자리 그늘: 지도 위 글자 버튼이 늘 읽히게 */
+#map::after,#planet::after{content:"";position:absolute;left:0;right:0;top:0;height:calc(var(--s12) + var(--safe-t));pointer-events:none;z-index:1;
+  background:linear-gradient(rgba(12,14,19,.78),rgba(12,14,19,0))}
+#map::before{content:"";position:absolute;left:0;right:0;bottom:0;height:calc(var(--s12) + var(--safe-b));pointer-events:none;z-index:1;
+  background:linear-gradient(0deg,rgba(12,14,19,.7),rgba(12,14,19,0))}
+.map-hint{z-index:2}
+.map-gl canvas,.story-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.lock-layer{position:absolute;inset:0;pointer-events:none}
+.lock{position:absolute;left:0;top:0;color:#d8c77a;filter:drop-shadow(0 0 6px rgba(255,216,74,.45));transition:opacity .3s}
+.layer .back{position:absolute;left:calc(var(--s3) + var(--safe-l));top:calc(var(--s2) + var(--safe-t));margin:0;color:var(--c-ink);z-index:3}
+.map-hint{position:absolute;left:calc(var(--s3) + var(--safe-l));bottom:calc(var(--s3) + var(--safe-b));font-size:var(--fs-sm);letter-spacing:.12em;color:var(--c-ink-2);transition:opacity var(--d-exit)}
+.map-hint.off{opacity:0}
+.map-step{position:absolute;right:calc(var(--s3) + var(--safe-r));bottom:calc(var(--s2) + var(--safe-b));display:flex;gap:var(--s2);z-index:3}
+.map-step button{min-height:var(--tap);font-size:var(--fs-sm);letter-spacing:.12em;color:var(--c-ink-2)}
+.map-step button:hover{color:var(--c-ink)}
+/* 정보 글: 테두리 없이, 뒤에 어두운 그늘만 */
+.panel{position:absolute;left:0;bottom:0;width:min(30rem,100%);max-height:100%;overflow-y:auto;z-index:2;
+  padding:var(--s12) calc(var(--s4) + var(--safe-r)) calc(var(--s8) + var(--safe-b)) calc(var(--s4) + var(--safe-l));
+  background:radial-gradient(130% 100% at 0% 100%,rgba(12,14,19,.88) 30%,rgba(12,14,19,.6) 60%,rgba(12,14,19,0) 85%);
+  user-select:text;-webkit-user-select:text;scrollbar-width:none}
+.panel::-webkit-scrollbar{display:none}
+.panel[hidden]{display:none}
+.panel .kind{display:block;font-family:var(--serif);font-size:var(--fs-xs);letter-spacing:.28em;color:var(--c-blue);text-transform:uppercase}
+.panel h2{font-weight:400;font-size:var(--fs-2xl);line-height:1.15;letter-spacing:.12em;margin:var(--s1) 0 var(--s1)}
+.panel .full{font-size:var(--fs-sm);color:var(--c-ink-2);letter-spacing:.06em;margin-bottom:var(--s3);word-break:keep-all}
+.panel dl{display:grid;gap:var(--s1) 0;margin-bottom:var(--s3)}
+.panel dt{font-size:var(--fs-xs);letter-spacing:.2em;color:var(--c-blue);margin-top:var(--s2)}
+.panel dd{font-size:var(--fs-md);line-height:1.8;word-break:keep-all}
+.panel .acts{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);align-items:center}
+.panel .acts button{min-height:var(--tap);font-size:var(--fs-lg);letter-spacing:.2em;color:var(--c-ink)}
+.panel .acts .go{font-size:var(--fs-xl);letter-spacing:.3em}
+.panel .acts .go::before{content:"— ";color:var(--c-ember)}
+.panel .acts button[aria-disabled="true"]{color:var(--c-ink-2);cursor:default}
+.panel .acts button[aria-disabled="true"]::before{content:none}
+.panel .acts .quiet{font-size:var(--fs-sm);color:var(--c-ink-2)}
+@media (max-width:640px){
+  .panel{width:100%;max-height:58%;padding:var(--s6) calc(var(--s3) + var(--safe-r)) calc(var(--s8) + var(--safe-b)) calc(var(--s3) + var(--safe-l));
+    background:linear-gradient(0deg,rgba(12,14,19,.92) 55%,rgba(12,14,19,.7) 80%,rgba(12,14,19,0))}
+  .panel h2{font-size:var(--fs-xl)}
+  .map-step{bottom:auto;top:calc(var(--s2) + var(--safe-t))}
+}
+/* 이야기 지도의 갈림목 */
+.story-nodes{position:absolute;inset:0;pointer-events:none}
+.node{position:absolute;left:0;top:0;width:64px;height:64px;display:grid;place-items:center;pointer-events:auto;border-radius:50%;
+  background:radial-gradient(circle,rgba(16,13,38,.9) 38%,rgba(16,13,38,.5) 55%,rgba(16,13,38,0) 72%);color:#ffe9a8;text-align:center}
+.node svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;stroke-linecap:round;overflow:visible}
+.node.star{color:#9fe3ff}
+.node.open::after{content:"";position:absolute;inset:6px;border-radius:50%;box-shadow:0 0 0 1px currentColor,0 0 18px currentColor;opacity:.0;animation:nodePulse 2.4s var(--ease-out) infinite}
+.node.done svg{fill:currentColor;fill-opacity:.28}
+.node.done{color:var(--c-ember)}
+.node.star.done{color:var(--c-blue)}
+.node.locked{color:rgba(207,200,172,.42);cursor:default}
+.node:not(.locked):hover{transform-origin:center}
+@keyframes nodePulse{0%{opacity:.85;transform:scale(.85)}100%{opacity:0;transform:scale(1.5)}}
+/* 행성 안으로 들어올 때: 짧게 찢어지듯 맞춰지는 화면 (밝게 번쩍이지 않는다) */
+#planet.glitch-in{animation:glitchIn .12s steps(4,end) both}
+@keyframes glitchIn{0%{clip-path:inset(8% 0 58% 0);transform:translateX(-14px)}25%{clip-path:inset(46% 0 18% 0);transform:translateX(11px)}
+  50%{clip-path:inset(0 0 72% 0);transform:translateX(-6px)}75%{clip-path:inset(28% 0 26% 0);transform:translateX(4px)}100%{clip-path:inset(0);transform:none}}
+@media (prefers-reduced-motion:reduce){.node.open::after{animation:none;opacity:.6;transform:none}#planet.glitch-in{animation:none}}
 </style>
 </head>
 <body class="home">
@@ -175,7 +239,7 @@ body:not(.home) .mark{opacity:0}
 <div id="stage">
   <section class="screen" id="main" aria-label="메인">
     <nav class="menu">
-      <button class="primary ink" data-go="start" data-text="시작"></button>
+      <button class="primary ink" data-go="map" data-text="시작"></button>
       <button class="sub ink" data-go="lore" data-text="세계관"></button>
       <button class="sub ink" data-go="settings" data-text="설정"></button>
     </nav>
@@ -198,6 +262,38 @@ body:not(.home) .mark{opacity:0}
   </section>
 </div>
 
+<section class="layer" id="map" aria-label="행성 지도" hidden>
+  <div class="map-gl" id="mapGL"></div>
+  <button class="back ink" data-go="main">돌아가기</button>
+  <p class="map-hint" id="mapHint">천체를 눌러 보세요</p>
+  <nav class="map-step" aria-label="천체 둘러보기">
+    <button type="button" data-step="-1">이전 천체</button>
+    <button type="button" data-step="1">다음 천체</button>
+  </nav>
+  <aside class="panel" id="bodyInfo" aria-live="polite" hidden>
+    <span class="kind" id="biKind"></span>
+    <h2 class="ink" id="biName"></h2>
+    <p class="full" id="biFull"></p>
+    <dl>
+      <dt>위치</dt><dd id="biLoc"></dd>
+      <dt>설명</dt><dd id="biDesc"></dd>
+      <dt>외부 묘사</dt><dd id="biExt"></dd>
+    </dl>
+    <div class="acts"><button type="button" class="go ink" id="biEnter">입장</button><button type="button" class="quiet" id="biClose">닫기</button></div>
+  </aside>
+</section>
+
+<section class="layer" id="planet" aria-label="행성 안" hidden>
+  <div class="story-root" id="storyRoot"></div>
+  <button class="back ink" data-go="map">지도로</button>
+  <aside class="panel" id="nodePanel" aria-live="polite" hidden>
+    <span class="kind" id="npKind"></span>
+    <h2 class="ink" id="npTitle"></h2>
+    <dl><dd id="npBody"></dd></dl>
+    <div class="acts" id="npActs"></div>
+  </aside>
+</section>
+
 <div class="lens" id="grain" aria-hidden="true"></div>
 <div class="lens" id="vignette" aria-hidden="true"></div>
 <div class="mark" id="mark"></div>
@@ -209,6 +305,14 @@ body:not(.home) .mark{opacity:0}
    데이터
    ════════════════════════════════════════════════ */
 const NOTICES = [
+  { name: "Patch v-3.0.0", date: "2026-11-27", items: [
+    "시작을 누르면 3D 행성 지도가 열립니다. 끌어서 돌리고, 휠이나 두 손가락으로 확대할 수 있습니다.",
+    "천체를 누르면 위치 · 설명 · 외부 묘사가 나타납니다. '이전 천체 / 다음 천체' 버튼으로도 둘러볼 수 있습니다.",
+    "열린 행성에서 '입장'을 누르면 짧은 글리치와 함께 행성 안으로 들어갑니다.",
+    "행성 안에서는 책(이야기) · 별(전투 · 탐색) · 책 위의 별(둘 다) 아이콘이 이야기 흐름을 따라 노랑 · 민트 빛줄기로 이어집니다.",
+    "갈래가 나뉘는 곳에서는 하나를 골라야 하며, 진행은 행성의 타임라인에 저장됩니다.",
+    "기기 성능에 맞춰 3D 지도의 품질이 자동으로 조절됩니다."
+  ]},
   { name: "Patch v-2.0.0", date: "2026-11-26", items: [
     "배경을 '추락하는 불빛 위키'처럼 하늘색 · 노란 불빛이 흐르는 우주로 바꿨습니다.",
     "혜성이 위키처럼 빛 연기와 불티를 남기며 떨어지고, 큰 불빛은 천천히 지나갑니다.",
@@ -345,14 +449,20 @@ let current = null;
 function go(name, push = true) {
   if (name === current) return;
   document.body.classList.toggle("home", name === "main");
-  if (name === "start") {
-    document.body.classList.add("blank");
+  const layerOn = name === "map" || name === "planet";
+  document.getElementById("map").hidden = name !== "map";
+  document.getElementById("planet").hidden = name !== "planet";
+  if (name !== "map" && Map3D.ready()) Map3D.get().stop();
+  if (name !== "planet") Story.close();
+  if (layerOn) {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("on"));
-    current = "start"; Scene.setExposure(0);
-    if (push) history.pushState({ s: "start" }, "");
+    Scene.halt();
+    if (name === "map") Map3D.show();
+    if (name === "planet") Story.show();
+    current = name;
+    if (push) history.pushState({ s: name }, "");
     return;
   }
-  document.body.classList.remove("blank");
   Scene.setExposure(name === "main" ? 1 : 0.42);
   if (name === "lore") renderLore();
   if (name === "settings") renderSettings();
@@ -363,14 +473,119 @@ function go(name, push = true) {
   const focusTarget = document.querySelector("#" + name + " h2, #" + name + " .primary");
   if (focusTarget && name !== "main") { focusTarget.tabIndex = -1; focusTarget.focus({ preventScroll: true }); }
 }
-document.addEventListener("click", e => {
+
+/* ════════════════════════════════════════════════
+   행성 지도 (3D)
+   ════════════════════════════════════════════════ */
+const Map3D = (() => {
+  let map = null, body = null;
+  const $ = id => document.getElementById(id);
+  function fill(b) {
+    body = b;
+    const i = b.info;
+    if (b.lore) Lore.unlock(b.lore);                 // 지도에서 본 설정은 세계관에 기록된다
+    $("biKind").dataset.text = i.label;
+    $("biName").dataset.text = i.name;
+    $("biFull").textContent = i.fullName || ""; $("biFull").hidden = !i.fullName;
+    $("biLoc").textContent = i.location;
+    $("biDesc").textContent = i.desc.join(" ");
+    $("biExt").textContent = i.exterior;
+    const enter = $("biEnter");
+    const canEnter = b.kind === "planet" || b.kind === "moon" || b.kind === "blackhole";
+    enter.hidden = !canEnter;
+    enter.textContent = b.locked ? "봉인됨" : "입장";
+    enter.setAttribute("aria-disabled", String(!!b.locked));
+    $("bodyInfo").hidden = false; $("mapHint").classList.add("off");
+    typesetAll($("bodyInfo"), 150);
+  }
+  function close() { $("bodyInfo").hidden = true; body = null; }
+  function init() {
+    map = FallApp3D.createMap($("mapGL"), { onSelect: fill, onDeselect: close });
+    document.querySelectorAll("[data-step]").forEach(b => b.onclick = () => map.step(+b.dataset.step));
+    $("biClose").onclick = () => map.deselect();
+    $("biEnter").onclick = () => {
+      if (!body || body.locked || body.kind !== "planet") return;
+      const pid = body.planetId;
+      map.runGlitch(280, () => { Story.planet = pid; go("planet"); });
+    };
+  }
+  return {
+    ready: () => !!map, get: () => map,
+    show() {
+      if (!window.FallApp3D) return;
+      if (!map) init();
+      map.start();
+    },
+    deselect() { if (map && map.selectedId()) { map.deselect(); return true; } return false; }
+  };
+})();
+
+/* ════════════════════════════════════════════════
+   행성 안: 이야기 지도
+   ════════════════════════════════════════════════ */
+const Story = (() => {
+  let sm = null, tl = null, openNode = null;
+  const $ = id => document.getElementById(id);
+  function timeline(pid) {
+    const list = Timeline.list(pid).sort((a, b) => b.updatedAt - a.updatedAt);
+    return list[0] || Timeline.create(pid, {});
+  }
+  function closePanel() { $("nodePanel").hidden = true; openNode = null; }
+  function openPanel(n, st, data) {
+    openNode = n;
+    const L = FallApp3D.TYPE_LABEL;
+    $("npKind").dataset.text = L[n.type];
+    $("npTitle").dataset.text = n.title || "???";
+    const lines = [];
+    if (n.type !== "star") lines.push(n.body || "아직 작성되지 않은 이야기입니다.");
+    if (n.type !== "book") lines.push("전투 · 탐색이 아직 준비되지 않았습니다.");
+    $("npBody").textContent = st === "done" ? "이미 지나온 갈림목입니다." : lines.join(" ");
+    const acts = $("npActs"); acts.innerHTML = "";
+    const btn = (text, cls, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = text; b.onclick = fn; acts.appendChild(b); return b; };
+    if (st !== "done") {
+      if (n.next.length > 1) {
+        n.next.forEach((id, k) => {
+          const t = data.nodes.find(x => x.id === id);
+          btn(`갈래 ${k + 1} · ${L[t.type]}`, "go ink", () => { sm.complete(n.id, id); closePanel(); });
+        });
+      } else {
+        btn("다음으로", "go ink", () => { sm.complete(n.id); closePanel(); });
+      }
+    }
+    btn("닫기", "quiet", closePanel);
+    $("nodePanel").hidden = false;
+    typesetAll($("nodePanel"), 100);
+  }
+  return {
+    planet: 1,
+    show() {
+      if (!window.FallApp3D) return;
+      if (!sm) sm = FallApp3D.createStoryMap($("storyRoot"), {
+        onOpen: openPanel,
+        onSave: st => { if (tl) Timeline.save(this.planet, tl.id, { flags: Object.assign({}, tl.flags, { story: st }), node: st.done[st.done.length - 1] || null }); }
+      });
+      tl = timeline(this.planet);
+      closePanel();
+      const layer = $("planet");
+      layer.classList.remove("glitch-in"); void layer.offsetWidth; layer.classList.add("glitch-in");
+      sm.open(this.planet, (tl.flags && tl.flags.story) || null);
+    },
+    close() { if (sm) sm.close(); closePanel(); },
+    closePanel, isPanelOpen: () => !$("nodePanel").hidden
+  };
+})();document.addEventListener("click", e => {
   const b = e.target.closest("[data-go]");
   if (!b) return;
-  if (b.dataset.go === "main" && history.state && history.state.s) { history.back(); return; }
+  if ((b.dataset.go === "main" || (b.dataset.go === "map" && current === "planet")) && history.state && history.state.s) { history.back(); return; }
   go(b.dataset.go);
 });
 addEventListener("popstate", e => go((e.state && e.state.s) || "main", false));
-addEventListener("keydown", e => { if (e.key === "Escape" && current !== "main") history.back(); });
+addEventListener("keydown", e => {
+  if (e.key !== "Escape" || current === "main") return;
+  if (current === "map" && Map3D.deselect()) return;
+  if (current === "planet" && Story.isPanelOpen()) { Story.closePanel(); return; }
+  history.back();
+});
 
 /* ── 세계관 ── */
 function renderLore() {
@@ -685,8 +900,8 @@ const Scene = (() => {
 
   function frame(t) {
     raf = requestAnimationFrame(frame);
-    const dt = Math.min(0.05, (t - last) / 1000 || 0.016); last = t;
-    watch(dt);
+    const raw = (t - last) / 1000 || 0.016, dt = Math.min(0.05, raw); last = t;
+    watch(raw);                                          // 품질 판단은 잘리지 않은 실제 시간으로
     exposure += (expTarget - exposure) * Math.min(1, dt * 1.6);
     if (expTarget === 0 && exposure < 0.01) { stop(); return; }
     const p = Cam.tick(dt);
@@ -711,6 +926,7 @@ const Scene = (() => {
   resize(); fillComets(); start();
   return {
     setExposure(v) { expTarget = v; if (v > 0) start(); },
+    halt() { expTarget = 0; exposure = 0; stop(); },     // 3D 화면이 덮을 때는 바로 멈춘다
     tier() { return tier; }
   };
 })();
@@ -739,5 +955,6 @@ try {
   if (App) App.addListener("backButton", () => { if (current !== "main") history.back(); else App.exitApp(); });
 } catch (e) {}
 </script>
+<!--APP3D-->
 </body>
 </html>

@@ -8,7 +8,11 @@
 | --- | --- |
 | `src/index.html` | 앱 본체 (메인 · 세계관 · 설정, 하늘/혜성/캠코더 연출, 타임라인 세이브) |
 | `src/fonts/` | 송명(Song Myung), IM Fell English 글꼴 (SIL OFL 1.1) |
-| `build.mjs` | 글꼴을 넣어 단일 HTML `dist/index.html` 생성 |
+| `src/map.js` | 3D 행성 지도 (three.js, 셰이더 행성 · 혜성 · 블랙홀 · 글리치 전환) |
+| `src/bodies.js` | 지도 위 천체의 배치 · 잠김 · 정보 문구 (외부 묘사는 초안) |
+| `src/story.js` | 행성 안 이야기 지도 (책 · 별 아이콘, 노랑 · 민트 빛줄기) |
+| `src/story-data.js` | 행성별 이야기 노드 (제목 · 본문은 비어 있음) |
+| `build.mjs` | 글꼴과 3D 코드를 넣어 단일 HTML `dist/index.html` 생성 |
 | `electron/main.cjs` | Windows exe 진입점 |
 | `android/` | Capacitor 안드로이드 프로젝트 |
 
