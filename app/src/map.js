@@ -63,11 +63,21 @@ void main(){
 const PLANET_FS = /* glsl */`
 uniform float uTime; uniform int uMode; uniform float uSeed;
 uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform vec3 uSun; uniform vec3 uRim;
+uniform vec3 uCutN; uniform float uCutD; uniform float uHalf;
 varying vec3 vObj; varying vec3 vN; varying vec3 vW;
 ${NOISE}
 void main(){
   vec3 p=normalize(vObj);
   vec3 n=normalize(vN);
+  float cut=0.;
+  if(uHalf!=0.){                      // 제 1 행성: 결정이 박히며 잘린 구. 물결진 자른 면의 한쪽만 남긴다
+    cut=dot(p,uCutN)-uCutD+snoise(p*3.3+uSeed)*.035;
+    if(cut*uHalf<0.) discard;
+    if(!gl_FrontFacing){              // 잘린 틈으로 보이는 안쪽 = 남색 단면
+      float k=.72+.28*clamp(dot(p,uCutN)*uHalf,0.,1.);
+      gl_FragColor=vec4(uC3*k+vec3(.32,.2,.6)*smoothstep(.09,.0,abs(cut))*.35,1.); return;
+    }
+  }
   if(uMode==3){                       // 꿈틀거리는 표면의 법선 근사
     float e=.02; vec3 q=p*1.6+vec3(uSeed)+vec3(0.,uTime*.04,0.);
     float f0=fbm(q); float fx=fbm(q+vec3(e,0,0)); float fy=fbm(q+vec3(0,e,0)); float fz=fbm(q+vec3(0,0,e));
@@ -90,15 +100,9 @@ void main(){
     col=mix(col,uC3,mask*(.35+.65*spiral));
     col=mix(col,uC2*1.15,smoothstep(.045,.0,r)*step(0.,dot(p,eye)));   // 눈동자
   } else if(uMode==1){                // 제 1 행성: 푸른 잿빛 바위 + 남색 균열
-    float f=fbm(p*2.6+uSeed);
-    col=mix(uC1*.86,uC1*1.12,smoothstep(-.4,.5,f));
-    col=mix(col,uC2,smoothstep(.35,.75,fbm(p*6.+uSeed*2.))*.25);
-    vec3 A=normalize(vec3(-.18,1.,.2));
-    float band=abs(dot(p,A)-.2+fbm(p*3.5+uSeed)*.09);
-    float rift=smoothstep(.15,.1,band);
-    col=mix(col,uC3,rift);
-    float edge=smoothstep(.17,.145,band)-smoothstep(.13,.1,band);
-    emis+=vec3(.62,.42,1.)*max(edge,0.)*.55;                    // 결정이 박힌 균열 가장자리의 보랏빛
+    float f=fbm(p*2.2+uSeed);                                   // 그림처럼 거의 단색, 아주 옅은 결만
+    col=uC1*(.95+.08*f);
+    emis+=vec3(.55,.36,.95)*smoothstep(.07,.0,abs(cut))*.45;     // 결정이 박힌 자른 면 가장자리의 보랏빛
   } else if(uMode==2){                // 노란 항성: 끓는 표면
     float mu=max(dot(n,V),0.);
     float big=fbm(p*3.+vec3(0.,uTime*.05,uTime*.03)+uSeed);
@@ -126,7 +130,8 @@ void main(){
   float diff=clamp((dot(n,L)+.18)/1.18,0.,1.);
   diff=smoothstep(0.,1.,diff);
   float rim=pow(1.-max(dot(n,V),0.),3.2);
-  vec3 lit=col*(.07+diff*1.05)+uRim*rim*(.25+.75*diff)+emis;
+  float amb=uMode==1?.34:.07;                                    // 제 1 행성은 그림처럼 고르게 밝게, 입체감은 남긴다
+  vec3 lit=col*(amb+diff*(1.05-amb))+uRim*rim*(.25+.75*diff)+emis;
   gl_FragColor=vec4(lit,1.);
 }`;
 
@@ -139,20 +144,20 @@ void main(){vec3 V=normalize(cameraPosition-vW);float i=pow(clamp(.72-dot(vN,V)*
 /* 결정: 면이 꺾이는 보석, 가장자리가 빛나고 가운데에 빛 심지 */
 const CRYSTAL_VS = /* glsl */`varying vec3 vN; varying vec3 vW; varying vec3 vL;
 void main(){vL=position;vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;vN=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*viewMatrix*w;}`;
-const CRYSTAL_FS = /* glsl */`uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uSun; uniform float uTime; uniform float uLen;
+const CRYSTAL_FS = /* glsl */`uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uSun; uniform float uTime; uniform float uLen; uniform vec2 uJ;
 varying vec3 vN; varying vec3 vW; varying vec3 vL;
 ${NOISE}
 void main(){
   vec3 n=normalize(vN); vec3 V=normalize(cameraPosition-vW); vec3 L=normalize(uSun-vW);
   float fres=pow(1.-abs(dot(n,V)),2.2);
-  float core=1.-clamp(abs(vL.y)/uLen,0.,1.);
+  float core=1.-clamp(length(vL.xy-uJ)/uLen,0.,1.);
   float flow=.5+.5*snoise(vec3(vL.y*1.6-uTime*.35,vL.x*3.,vL.z*3.));
   vec3 col=mix(uC1,uC2,clamp(core*.5+fres*.55+flow*.2,0.,1.));
   float diff=max(dot(n,L),0.);
-  float spec=pow(max(dot(reflect(-L,n),V),0.),28.);
+  float spec=pow(max(dot(reflect(-L,n),V),0.),60.)*.55;            // 작고 약한 반사광 (얼룩처럼 보이지 않게)
   float veins=smoothstep(.72,.97,snoise(vec3(vL.y*1.2-uTime*.3,vL.x*2.5,vL.z*2.5)));   // 길쭉한 빛줄기 (점처럼 흩어지지 않게)
   float edge=pow(1.-abs(dot(n,V)),6.);                            // 실루엣 모서리의 가는 빛
-  vec3 c=col*(.28+.62*diff)+vec3(1.,.95,1.)*spec+uC2*fres*.7+uC2*core*core*.45+vec3(1.,.9,1.)*veins*core*.35+vec3(.95,.85,1.)*edge*1.1;
+  vec3 c=col*(.28+.62*diff)+vec3(1.,.95,1.)*spec+uC2*fres*.7+uC2*core*core*.45+vec3(1.,.9,1.)*veins*core*.15+vec3(.95,.85,1.)*edge*1.1;
   gl_FragColor=vec4(c,1.);
 }`;
 
@@ -332,7 +337,8 @@ export function createMap(container, hooks) {
   function planetMaterial(mode, c1, c2, c3, rim, seed) {
     return new THREE.ShaderMaterial({
       uniforms: { uTime: T, uMode: { value: mode }, uSeed: { value: seed || 0 }, uC1: { value: col(c1) }, uC2: { value: col(c2) },
-        uC3: { value: col(c3) }, uRim: { value: col(rim) }, uSun: { value: SUN } },
+        uC3: { value: col(c3) }, uRim: { value: col(rim) }, uSun: { value: SUN },
+        uCutN: { value: new THREE.Vector3(0, 1, 0) }, uCutD: { value: 0 }, uHalf: { value: 0 } },   // 셰이더를 함께 쓰므로 모두 명시
       vertexShader: PLANET_VS, fragmentShader: PLANET_FS
     });
   }
@@ -343,7 +349,7 @@ export function createMap(container, hooks) {
     }));
   }
   function crystalMaterial(c1, c2, len) {
-    return new THREE.ShaderMaterial({ uniforms: { uC1: { value: col(c1) }, uC2: { value: col(c2) }, uSun: { value: SUN }, uTime: T, uLen: { value: len } },
+    return new THREE.ShaderMaterial({ uniforms: { uC1: { value: col(c1) }, uC2: { value: col(c2) }, uSun: { value: SUN }, uTime: T, uLen: { value: len }, uJ: { value: new THREE.Vector2(0, 0) } },
       vertexShader: CRYSTAL_VS, fragmentShader: CRYSTAL_FS });
   }
   function register(body, group, radius, pickRadius) {
@@ -359,30 +365,91 @@ export function createMap(container, hooks) {
     const g = new THREE.Group(); g.position.copy(b.pos); root.add(g);
     const r = b.radius;
     switch (b.look) {
-      case "planet1": {                                  // 1번째 그림
-        const tilt = new THREE.Group(); tilt.rotation.set(0.25, -0.5, 0.15); g.add(tilt);
-        const sphere = new THREE.Mesh(new THREE.SphereGeometry(r, 72, 48), planetMaterial(1, "#7480bd", "#9aa6dc", "#1a2462", "#8fa0ff", 3.1));
-        tilt.add(sphere); spin.push([sphere, 0.03]);
-        tilt.add(atmosphere(r * 1.13, "#8e9cff", 3.4, 1.3));
-        /* 결정 칼날 두 개: 긴 것은 왼쪽 아래에서 오른쪽 위로, 짧은 것은 왼쪽 위에서 가운데로 */
-        const cm = crystalMaterial("#7a3fd0", "#cfa8ff", r * 2.4);
-        const long = new THREE.Mesh(shardGeometry(r * 5.2, r * 0.34, 7, 7), cm);
-        long.position.set(0.1 * r, 0.2 * r, 0.25 * r); long.rotation.set(0.05, 0.2, -1.32); tilt.add(long);
-        const short = new THREE.Mesh(shardGeometry(r * 2.7, r * 0.28, 7, 21), cm);
-        short.position.set(-0.55 * r, 0.75 * r, 0.3 * r); short.rotation.set(0.2, 0.1, 0.52); tilt.add(short);
-        const core = glowSprite("rgba(240,225,255,.95)", "rgba(160,110,255,.5)", r * 1.6);
-        core.position.set(-0.1 * r, 0.25 * r, 0.75 * r); tilt.add(core);
-        tick.push(t => { core.material.opacity = 0.75 + 0.25 * Math.sin(t * 1.3); });
-        /* 떠다니는 파편 (드문드문, 무리 짓지 않게) */
-        const rockMat = planetMaterial(4, "#7480bd", "#9aa6dc", "#000000", "#8fa0ff", 1.3);
-        [[-1.5, 0.3, 0.5, 0.11], [1.6, 0.9, -0.3, 0.09], [1.75, -0.2, 0.4, 0.13], [-1.1, -0.9, 0.6, 0.12], [-0.6, -1.25, 0.2, 0.07], [1.2, 1.25, 0.1, 0.06]]
-          .forEach(([x, y, z, s], i) => {
-            const m = new THREE.Mesh(new THREE.IcosahedronGeometry(s * r * 1.6, 0), rockMat);
-            m.position.set(x * r, y * r, z * r); tilt.add(m);
-            const ax = v3(Math.random(), Math.random(), Math.random()).normalize(), sp = 0.2 + Math.random() * 0.4, base = m.position.clone();
-            tick.push(t => { m.rotateOnAxis(ax, 0.016 * sp); m.position.y = base.y + Math.sin(t * sp + i) * 0.04 * r; });
-          });
-        /* 노란 궤도 (위성은 아래 'moon'에서 이 궤도 위에 올린다) */
+      case "planet1": {
+        /* 1번째 그림을 픽셀로 측정해 옮긴 구도 (단위: 행성 반지름)
+           - 구가 비스듬한 물결 면으로 잘려, 위 조각이 왼쪽 위로 어긋나 있다 (-0.15, +0.25)
+           - 어긋난 틈으로 남색 단면이 보인다. 자른 면은 오른쪽으로 갈수록 올라간다
+           - 가지가 셋인 보랏빛 결정 하나가 틈 앞에 박혀 있고, 아랫가장자리가 녹아 흘러내린다
+           - 둥근 파편 5개 */
+        const face = new THREE.Group(); face.rotation.x = -0.89; g.add(face);      // 지도 카메라 쪽을 정면으로
+        const N = new THREE.Vector3(-0.2, 0.75, 0.63).normalize(), D = 0.04;
+        /* 잘린 면 위의 두 축: U = 오른쪽, W = 면을 따라 안쪽(위로) */
+        const U = new THREE.Vector3(1, 0, 0).addScaledVector(N, -N.x).normalize();
+        const W = new THREE.Vector3().crossVectors(N, U).normalize();
+        const halfMat = half => { const m = planetMaterial(1, "#7480be", "#8f9ad0", "#192462", "#9aa8ff", 3.1);
+          m.side = THREE.DoubleSide; m.uniforms.uCutN.value = N; m.uniforms.uCutD.value = D; m.uniforms.uHalf.value = half; return m; };
+        const sphereGeo = new THREE.SphereGeometry(r, 96, 64);
+        const bottom = new THREE.Mesh(sphereGeo, halfMat(-1)); face.add(bottom);
+        const top = new THREE.Mesh(sphereGeo, halfMat(1)); top.position.copy(N).multiplyScalar(0.2 * r).addScaledVector(W, 0.5 * r).addScaledVector(U, -0.15 * r); face.add(top);   // 결정 두께만큼 들리고, 잘린 면을 따라 뒤쪽 위 · 왼쪽으로 미끄러진 위 조각
+        const at = atmosphere(r * 1.1, "#8e9cff", 4.2, 0.7); at.position.set(-0.07 * r, 0.12 * r, 0); face.add(at);
+        /* 잘린 단면: 속이 빈 그릇이 아니라 평평한 남색 면으로 덮는다 (구와 평면이 만나는 원) */
+        const capR = Math.sqrt(1 - D * D) * r * 0.985;
+        const capMat = new THREE.ShaderMaterial({ side: THREE.DoubleSide,
+          uniforms: { uC: { value: col("#192462") }, uSeed: { value: 3.1 }, uTime: T },
+          vertexShader: `varying vec2 vP; void main(){vP=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+          fragmentShader: `uniform vec3 uC; uniform float uSeed; varying vec2 vP; ${NOISE}
+            void main(){float r=length(vP)/${(Math.sqrt(1 - D * D) * r * 0.985).toFixed(4)};
+              float grain=snoise(vec3(vP*3.,uSeed))*.5+.5;
+              vec3 c=uC*(.78+.3*r)+uC*grain*.12+vec3(.45,.3,.8)*smoothstep(.82,1.,r)*.4;
+              gl_FragColor=vec4(c,1.);}` });
+        const capFor = (sign, offset) => {
+          const cap = new THREE.Mesh(new THREE.CircleGeometry(capR, 96), capMat);
+          cap.lookAt(N.clone().multiplyScalar(sign));                     // 원판의 앞면이 바깥(잘린 쪽)을 본다
+          cap.position.copy(N).multiplyScalar(D * r).add(offset);
+          face.add(cap);
+        };
+        /* 뚜껑은 물결진 가장자리와 어긋나 테두리가 생기므로 쓰지 않는다 (안쪽 면이 남색 단면 역할) */
+        /* 결정: 측정한 윤곽(행성 반지름 단위)을 두께와 둥근 모서리가 있는 입체로 */
+        const P = [[-1.63,-0.49],[-0.90,-0.32],[-0.75,-0.24],[-0.62,-0.17],[-0.53,-0.19],[-0.49,-0.03],[-0.31,0.09],[-0.18,0.05],[-0.02,0.08],[0.16,0.03],[0.32,0.12],[0.46,0.15],[0.63,0.09],[0.81,0.08],[1.65,0.54],[0.04,0.30],[-0.93,1.23],[-0.58,0.15]];
+        const shape = new THREE.Shape();
+        shape.moveTo(P[0][0] * r, P[0][1] * r);
+        for (let k = 1; k < P.length; k++) {
+          const [x0, y0] = P[k - 1], [x1, y1] = P[k];
+          /* 긴 변은 살짝 오목하게 휘어 날 선 결정처럼, 짧은 변(흘러내린 자국)은 둥글게 */
+          const len = Math.hypot(x1 - x0, y1 - y0), mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+          const bend = len > 0.5 ? -0.06 : 0.025;
+          shape.quadraticCurveTo((mx - (y1 - y0) / len * bend) * r, (my + (x1 - x0) / len * bend) * r, x1 * r, y1 * r);
+        }
+        const depth = 0.24 * r;                                           // 가운데는 덩어리, 끝은 칼날처럼 (아래에서 끝으로 갈수록 얇게)
+        const cg = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: 0.09 * r, bevelSize: 0.05 * r, bevelSegments: 5, curveSegments: 10 });
+        cg.translate(0, 0, -depth / 2);
+        { const pa = cg.attributes.position, J = new THREE.Vector2(-0.2 * r, 0.16 * r);   // 가운데는 두껍고 날 끝으로 갈수록 얇게
+          for (let k = 0; k < pa.count; k++) {
+            const d = Math.hypot(pa.getX(k) - J.x, pa.getY(k) - J.y) / (1.75 * r);
+            pa.setZ(k, pa.getZ(k) * Math.max(0.18, 1 - d * d * 0.9));
+          } }
+        cg.scale(1, 1 / W.y, 1);                                          // 기울어진 면에 눕혀도 정면에서 그림 속 모양으로 보이게
+        /* 위쪽 뿔은 잘린 면에서 꺾여 앞(카메라 쪽) 위로 솟는다 — 그림에서 뿔이 위 조각 앞을 가로지르므로 */
+        { const pa = cg.attributes.position, y0 = 0.2 * r / W.y, ang = 1.05, cs = Math.cos(ang), sn = Math.sin(ang);
+          for (let k = 0; k < pa.count; k++) {
+            const y = pa.getY(k), x = pa.getX(k); if (y <= y0) continue;
+            const wx = Math.min(1, Math.max(0, (0.12 * r - x) / (0.2 * r)));  // 뿔(왼쪽)만 접는다. 오른쪽 날은 그대로
+            const t = Math.min(1, (y - y0) / (0.15 * r)) * wx, a = ang * t; // 접히는 선 근처는 부드럽게 휜다
+            const dy = y - y0, z = pa.getZ(k);
+            pa.setY(k, y0 + dy * Math.cos(a) - z * Math.sin(a)); pa.setZ(k, z * Math.cos(a) + dy * Math.sin(a));
+          }
+          cg.computeVertexNormals(); }
+        const cm = crystalMaterial("#7038c8", "#b88cf2", 1.25 * r);   // 그림의 #8d52d4 쪽으로 채도를 살린다
+        cm.uniforms.uJ.value.set(-0.2 * r, 0.16 * r / W.y);                   // 가지가 만나는 곳이 가장 밝다 (그림의 연보라 결)
+        const crystal = new THREE.Mesh(cg, cm);
+        crystal.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(U, W, N));   // 잘린 면 안에 눕힌다
+        crystal.position.copy(N).multiplyScalar((D + 0.09) * r).addScaledVector(W, -0.8 * r);   // 두 조각 사이에 끼워져 앞쪽으로 튀어나온다
+        face.add(crystal);
+
+        /* 둥근 파편 (측정 위치·크기) */
+        const rockMat = planetMaterial(4, "#7480be", "#8f9ad0", "#000000", "#9aa8ff", 1.3);
+        [[1.18,-0.03,0.08,0.35],[-0.83,-0.61,0.065,0.4],[-1.28,0.05,0.05,0.3],[-1.03,-0.57,0.03,0.45],[0.91,0.77,0.028,0.25]].forEach(([x, y, sz, z], i) => {
+          const geo = new THREE.IcosahedronGeometry(sz * r * 1.4, 2), pa = geo.attributes.position, v = new THREE.Vector3();
+          for (let k = 0; k < pa.count; k++) {                            // 조약돌처럼 둥글게 일그러뜨린다
+            v.fromBufferAttribute(pa, k); const w = 1 + 0.22 * Math.sin(v.x * 9 + i) * Math.cos(v.y * 7 - i) + 0.12 * Math.sin(v.z * 11);
+            v.multiplyScalar(w); v.y *= 0.8; pa.setXYZ(k, v.x, v.y, v.z);
+          }
+          geo.computeVertexNormals();
+          const m = new THREE.Mesh(geo, rockMat); m.position.set(x * r, y * r, z * r); face.add(m);
+          const sp = 0.15 + Math.random() * 0.3, base = m.position.clone(), ax = v3(Math.random(), Math.random(), Math.random()).normalize();
+          tick.push(t => { m.rotateOnAxis(ax, 0.01 * sp); m.position.y = base.y + Math.sin(t * sp + i) * 0.03 * r; });
+        });
+        /* 노란 궤도 (2번째 그림) — 위성은 'moon'에서 이 궤도 위에 올린다 */
         const orbit = new THREE.Group(); orbit.rotation.set(0.32, 0.4, -0.18); g.add(orbit);
         const oc = new THREE.EllipseCurve(0, 0, r * 2.55, r * 1.75, 0, Math.PI * 2);
         orbit.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(oc.getPoints(160).map(p => v3(p.x, 0, p.y))),
