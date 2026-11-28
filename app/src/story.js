@@ -143,6 +143,9 @@ export function createStoryMap(root, hooks) {
       if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
     },
     close() { running = false; cancelAnimationFrame(raf); },
+    /* 읽기 · 게임 화면이 덮고 있는 동안은 그리지 않는다 */
+    pause() { running = false; cancelAnimationFrame(raf); },
+    resume() { if (!running && data) { running = true; resize(); last = performance.now(); raf = requestAnimationFrame(frame); } },
     complete(nodeId, choice) {
       if (!state.done.includes(nodeId)) state.done.push(nodeId);
       if (choice) state.chosen[nodeId] = choice;

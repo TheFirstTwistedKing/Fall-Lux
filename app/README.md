@@ -11,6 +11,7 @@
 | `src/map.js` | 3D 행성 지도 (three.js, 셰이더 행성 · 혜성 · 블랙홀 · 글리치 전환) |
 | `src/bodies.js` | 지도 위 천체의 배치 · 잠김 · 정보 문구 (외부 묘사는 초안) |
 | `src/story.js` | 행성 안 이야기 지도 (책 · 별 아이콘, 노랑 · 민트 빛줄기) |
+| `src/play.js` | 빛 노드 게임 (빛 조각 모으기 · 그림자 피하기) |
 | `src/story-data.js` | 행성별 이야기 노드 (제목 · 본문은 비어 있음) |
 | `build.mjs` | 글꼴과 3D 코드를 넣어 단일 HTML `dist/index.html` 생성 |
 | `electron/main.cjs` | Windows exe 진입점 |
