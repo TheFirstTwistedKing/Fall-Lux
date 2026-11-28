@@ -380,7 +380,7 @@ export function createMap(container, hooks) {
           m.side = THREE.DoubleSide; m.uniforms.uCutN.value = N; m.uniforms.uCutD.value = D; m.uniforms.uHalf.value = half; return m; };
         const sphereGeo = new THREE.SphereGeometry(r, 96, 64);
         const bottom = new THREE.Mesh(sphereGeo, halfMat(-1)); face.add(bottom);
-        const top = new THREE.Mesh(sphereGeo, halfMat(1)); top.position.copy(N).multiplyScalar(0.2 * r).addScaledVector(W, 0.5 * r).addScaledVector(U, -0.15 * r); face.add(top);   // 결정 두께만큼 들리고, 잘린 면을 따라 뒤쪽 위 · 왼쪽으로 미끄러진 위 조각
+        const top = new THREE.Mesh(sphereGeo, halfMat(1)); top.position.copy(N).multiplyScalar(0.36 * r).addScaledVector(W, 0.5 * r).addScaledVector(U, -0.15 * r); face.add(top);   // 결정 두께만큼 들리고, 잘린 면을 따라 뒤쪽 위 · 왼쪽으로 미끄러진 위 조각
         const at = atmosphere(r * 1.1, "#8e9cff", 4.2, 0.7); at.position.set(-0.07 * r, 0.12 * r, 0); face.add(at);
         /* 잘린 단면: 속이 빈 그릇이 아니라 평평한 남색 면으로 덮는다 (구와 평면이 만나는 원) */
         const capR = Math.sqrt(1 - D * D) * r * 0.985;
@@ -433,7 +433,7 @@ export function createMap(container, hooks) {
         cm.uniforms.uJ.value.set(-0.2 * r, 0.16 * r / W.y);                   // 가지가 만나는 곳이 가장 밝다 (그림의 연보라 결)
         const crystal = new THREE.Mesh(cg, cm);
         crystal.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(U, W, N));   // 잘린 면 안에 눕힌다
-        crystal.position.copy(N).multiplyScalar((D + 0.09) * r).addScaledVector(W, -0.8 * r);   // 두 조각 사이에 끼워져 앞쪽으로 튀어나온다
+        crystal.position.copy(N).multiplyScalar((D + 0.17) * r).addScaledVector(W, -0.8 * r);   // 두 조각 사이에 끼워져 앞쪽으로 튀어나온다
         face.add(crystal);
 
         /* 둥근 파편 (측정 위치·크기) */
