@@ -408,10 +408,9 @@ export function createMap(container, hooks) {
     const r = b.radius;
     switch (b.look) {
       case "planet1": {
-        /* 제 1 행성: 슈퍼 지구 + 궤도 무기
+        /* 제 1 행성: 슈퍼 지구 + 궤도 방어 고리
            - 바다 · 대륙 · 극지 얼음 · 구름층 · 밤 쪽 도시 불빛 · 푸른 대기
-           - 궤도 방어 고리: 포대가 줄지어 박힌 기울어진 고리
-           - 궤도 주포: 행성 지름보다 긴 선형 가속포. 코일이 차례로 충전되어 주기적으로 빛줄기를 쏜다 */
+           - 궤도 방어 고리: 포대가 줄지어 박힌 기울어진 고리 */
         const face = new THREE.Group(); face.rotation.x = -0.89; g.add(face);      // 지도 카메라 쪽을 정면으로 (z = 앞, y = 위)
         const body = new THREE.Group(); body.rotation.z = 0.32; face.add(body);   // 자전축 기울기
         const earth = new THREE.Mesh(new THREE.SphereGeometry(r, 96, 64), planetMaterial(1, "#13385f", "#4f6b3a", "#ffd84a", "#8fd0ff", 3.1));
@@ -469,66 +468,6 @@ export function createMap(container, hooks) {
         ring.add(mod, tur, bar, lamp);
         tick.push(t => { ring.rotation.z = -0.28 + t * 0.02; aimTurrets(t); });
 
-        /* ── 궤도 주포 ── */
-        const gun = new THREE.Group(); face.add(gun);
-        gun.position.set(-1.3 * r, 1.12 * r, 0.25 * r);
-        gun.quaternion.setFromUnitVectors(v3(0, 1, 0), v3(0.95, 0.24, -0.2).normalize());   // 행성 위에 가로로 떠서 오른쪽 위 우주를 겨눈다 (옆모습이 보이게)
-        const L = r * 2.3;
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.07, r * 0.085, L, 6), H1); barrel.position.y = L * 0.5; gun.add(barrel);
-        for (const sx of [-1, 1]) {                                           // 양옆의 가속 레일
-          const rail = new THREE.Mesh(new THREE.BoxGeometry(r * 0.03, L * 0.92, r * 0.05), H2); rail.position.set(sx * r * 0.13, L * 0.5, 0); gun.add(rail);
-          const strip = new THREE.Mesh(new THREE.BoxGeometry(r * 0.006, L * 0.9, r * 0.006), MINT); strip.position.set(sx * r * 0.13, L * 0.5, r * 0.028); gun.add(strip);
-        }
-        const NC = 14, coilGeo = new THREE.TorusGeometry(r * 0.17, r * 0.028, 6, 6);   // 육각 코일
-        const coils = new THREE.InstancedMesh(coilGeo, H1, NC), glowC = new THREE.InstancedMesh(new THREE.TorusGeometry(r * 0.17, r * 0.012, 4, 6),
-          new THREE.MeshBasicMaterial({ color: 0xffffff }), NC);
-        const qc = new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2);
-        for (let i = 0; i < NC; i++) {
-          const y = L * (0.12 + 0.8 * i / (NC - 1));
-          coils.setMatrixAt(i, M4.compose(v3(0, y, 0), qc, Sx));
-          glowC.setMatrixAt(i, M4.compose(v3(0, y, 0), qc, v3(1.03, 1.03, 1.03)));
-          glowC.setColorAt(i, new THREE.Color(0, 0, 0));
-        }
-        gun.add(coils, glowC);
-        /* 뒤쪽 동력부: 육면체 틀 + 노랗게 빛나는 다면체 노심 + 펼친 방열판 */
-        const block = new THREE.Mesh(new THREE.BoxGeometry(r * 0.42, r * 0.34, r * 0.3), H2); block.position.y = -r * 0.12; gun.add(block);
-        const coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffd84a").multiplyScalar(1.2) });
-        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(r * 0.1, 0), coreMat); core.position.set(0, -r * 0.12, r * 0.17); gun.add(core);
-        for (const [sx, a] of [[-1, 0.5], [1, -0.5], [-1, 0.15], [1, -0.15]]) {
-          const fin = new THREE.Group(); fin.position.set(sx * r * 0.21, -r * 0.12, 0); fin.rotation.z = a; gun.add(fin);
-          const panel = new THREE.Mesh(new THREE.BoxGeometry(r * 0.5, r * 0.11, r * 0.012), H1); panel.position.x = sx * r * 0.26; fin.add(panel);
-          const edge = new THREE.Mesh(new THREE.BoxGeometry(r * 0.46, r * 0.006, r * 0.014), AMBER); edge.position.set(sx * r * 0.26, r * 0.05, 0); fin.add(edge);
-        }
-        /* 포구: 나팔처럼 벌어진 고리 + 충전되는 빛 */
-        const HM = hull("#5a6274", 9); HM.side = THREE.DoubleSide;
-        const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.16, r * 0.09, r * 0.16, 6, 1, true), HM); muzzle.position.y = L + r * 0.04; gun.add(muzzle);
-        const flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture("rgba(255,255,255,1)", "rgba(255,216,74,0.55)"), color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-        flare.position.y = L + r * 0.12; flare.scale.setScalar(r * 0.6); gun.add(flare);
-        /* 발사 빛줄기: 서서히 밝아졌다 사라진다 (번쩍이지 않게) */
-        const beamMat = new THREE.ShaderMaterial({ uniforms: { uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-          vertexShader: `varying vec2 vU; void main(){vU=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-          fragmentShader: `uniform float uA; varying vec2 vU;
-            void main(){float x=abs(vU.x-.5)*2.; float core=exp(-x*x*18.); float halo=exp(-x*x*3.)*.35; float along=smoothstep(0.,.04,vU.y)*(1.-smoothstep(.55,1.,vU.y));
-              gl_FragColor=vec4(mix(vec3(1.,.85,.35),vec3(1.,.98,.9),core)*(core+halo)*along*uA,1.);}` });
-        const beam = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.05, r * 0.05, r * 14, 10, 1, true), beamMat);
-        beam.geometry.translate(0, r * 7, 0); beam.position.y = L + r * 0.1; gun.add(beam);
-        const CYC = 11, cc = new THREE.Color(), cMint = new THREE.Color("#4cc9ff"), cY = new THREE.Color("#ffd84a");
-        tick.push(t => {
-          const ph = (t % CYC) / CYC;                                         // 0~0.7 충전, 0.7~0.8 발사, 이후 식음
-          const charge = REDUCED ? 0.4 : Math.min(1, ph / 0.7);
-          for (let i = 0; i < NC; i++) {                                      // 코일이 뒤에서 앞으로 차례로 켜진다
-            const on = Math.min(1, Math.max(0, charge * NC * 1.1 - i)), cool = ph > 0.8 ? Math.max(0, 1 - (ph - 0.8) / 0.2) : 1;
-            cc.copy(cMint).lerp(cY, charge * charge).multiplyScalar(on * cool * 1.6 + 0.08);
-            glowC.setColorAt(i, cc);
-          }
-          glowC.instanceColor.needsUpdate = true;
-          const fire = REDUCED ? 0 : ph < 0.7 ? 0 : ph < 0.74 ? (ph - 0.7) / 0.04 : Math.max(0, 1 - (ph - 0.74) / 0.12);
-          beamMat.uniforms.uA.value = fire * 1.1;
-          flare.material.opacity = Math.min(1, charge * charge * 0.8 + fire * 0.4);
-          flare.scale.setScalar(r * (0.35 + 0.4 * charge + 0.3 * fire));
-          core.scale.setScalar(0.85 + 0.15 * Math.sin(t * 3));
-          gun.position.y = 1.12 * r + Math.sin(t * 0.4) * 0.03 * r;
-        });
         /* 노란 궤도 (2번째 그림) — 위성은 'moon'에서 이 궤도 위에 올린다 */
         const orbit = new THREE.Group(); orbit.rotation.set(0.32, 0.4, -0.18); g.add(orbit);
         const oc = new THREE.EllipseCurve(0, 0, r * 2.55, r * 1.75, 0, Math.PI * 2);
