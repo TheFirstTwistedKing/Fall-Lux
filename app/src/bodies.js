@@ -9,11 +9,11 @@ const v = (x, y, z) => new Vector3(x, y, z);
 const LOCKED = "아직 열리지 않았다.";
 
 export const BODIES = [
-  { id: "planet-1", kind: "planet", planetId: 1, look: "planet1", pos: v(1.05, 0.3, -3.3), radius: 1.15, pick: 2.2, ring: 2.1, locked: false,
+  { id: "planet-1", kind: "planet", planetId: 1, look: "planet1", pos: v(1.05, 0.3, -3.3), radius: 1.15, pick: 2.4, ring: 2.5, locked: false,
     info: { label: "행성 01", name: "제 1 행성", fullName: "차원의 틈 : 120 - 494 - 159 - ACU - 추락하는 불빛",
       location: "차원의 틈 : 120 - 494 - 159 - ACU",
       desc: ["추락하는 불빛 인원들이 살고있는 행성이다.", "이 행성의 특징은 “타임라인” 에 영향을 받지 않는 다는 것이다."],
-      exterior: "푸른 잿빛의 행성이 두 조각으로 쪼개져 있고, 그 틈 한가운데에 세 갈래로 뻗은 거대한 보랏빛 결정이 박혀 있다. 어긋난 틈 사이로 깊은 남색 단면이 드러나고, 떨어져 나온 파편들이 주위를 떠돈다. 노란 궤도를 따라 작은 위성 하나가 돈다." },
+      exterior: "바다와 대륙, 흰 구름과 극지의 얼음이 덮인 거대한 암석 행성이다. 밤 쪽에는 해안을 따라 도시의 불빛이 번진다. 행성 둘레를 포대가 줄지어 박힌 궤도 방어 고리가 감싸고, 그 곁에 행성 지름보다 긴 궤도 주포가 떠 있어 코일을 차례로 충전해 빛줄기를 쏜다. 노란 궤도를 따라 작은 위성 하나가 돈다." },
     lore: "planet-1" },
   { id: "moon-1", kind: "moon", look: "moon", orbitOf: "planet-1", pos: v(0, 0, 0), radius: 0.2, pick: 0.55, ring: 2.4, locked: true,
     info: { label: "위성", name: "???", location: "제 1 행성의 노란 궤도", desc: [LOCKED], exterior: "옅은 하늘빛의 작은 위성." } },

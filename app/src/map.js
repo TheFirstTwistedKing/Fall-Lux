@@ -85,7 +85,7 @@ void main(){
     n=normalize(n-vec3(fx-f0,fy-f0,fz-f0)/e*.18);
   }
   vec3 L=normalize(uSun-vW); vec3 V=normalize(cameraPosition-vW);
-  vec3 col=uC1; vec3 emis=vec3(0.);
+  vec3 col=uC1; vec3 emis=vec3(0.); float city=0.; float oceanSpec=0.;
   if(uMode==0){                       // 하늘빛 줄무늬 + 소용돌이 눈
     vec3 ax=normalize(vec3(.55,1.,.25));
     float turb=fbm(p*2.4+uSeed);
@@ -100,10 +100,18 @@ void main(){
     float mask=smoothstep(.3,.08,r)*step(0.,dot(p,eye));
     col=mix(col,uC3,mask*(.35+.65*spiral));
     col=mix(col,uC2*1.15,smoothstep(.045,.0,r)*step(0.,dot(p,eye)));   // 눈동자
-  } else if(uMode==1){                // 제 1 행성: 푸른 잿빛 바위 + 남색 균열
-    float f=fbm(p*2.2+uSeed);                                   // 그림처럼 거의 단색, 아주 옅은 결만
-    col=uC1*(.95+.08*f);
-    emis+=vec3(.55,.36,.95)*smoothstep(.07,.0,abs(cut))*.45;     // 결정이 박힌 자른 면 가장자리의 보랏빛
+  } else if(uMode==1){                // 제 1 행성: 슈퍼 지구 (바다 · 대륙 · 극지 얼음 · 밤 쪽 도시 불빛)
+    float f=fbm(p*1.7+uSeed)+.35*fbm(p*4.5+uSeed*2.);
+    float land=smoothstep(.04,.1,f);
+    float coast=smoothstep(.1,.0,abs(f-.07));
+    vec3 ocean=mix(uC1*.75,vec3(.16,.45,.62),smoothstep(-.25,.07,f));            // 깊은 바다 → 얕은 바다
+    float hi=smoothstep(.25,.55,f);
+    vec3 ground=mix(uC2,vec3(.55,.48,.33),hi); ground=mix(ground,vec3(.78,.74,.68),smoothstep(.55,.75,f));   // 낮은 땅 → 고원 → 산
+    float lat=abs(p.y)+.06*snoise(p*6.+uSeed);
+    float ice=smoothstep(.78,.86,lat);
+    col=mix(ocean,ground,land); col=mix(col,vec3(.9,.94,.98),ice);
+    city=land*(1.-ice)*smoothstep(-.1,.5,fbm(p*3.2+uSeed*3.))*(.25+.75*coast)*.4;   // 해안을 따라 넓게 번지는 불빛 (작은 점이 모인 무늬가 되지 않게 낮은 주파수)
+    oceanSpec=(1.-land)*(1.-ice);
   } else if(uMode==2){                // 노란 항성: 끓는 표면
     float mu=max(dot(n,V),0.);
     float big=fbm(p*3.+vec3(0.,uTime*.05,uTime*.03)+uSeed);
@@ -131,9 +139,42 @@ void main(){
   float diff=clamp((dot(n,L)+.18)/1.18,0.,1.);
   diff=smoothstep(0.,1.,diff);
   float rim=pow(1.-max(dot(n,V),0.),3.2);
-  float amb=uMode==1?.34:.07;                                    // 제 1 행성은 그림처럼 고르게 밝게, 입체감은 남긴다
+  float amb=.07;
   vec3 lit=col*(amb+diff*(1.05-amb))+uRim*rim*(.25+.75*diff)+emis;
+  if(uMode==1){                       // 바다의 햇빛 반사, 밤 쪽 도시 불빛
+    lit+=vec3(1.,.93,.8)*pow(max(dot(reflect(-L,n),V),0.),48.)*.55*oceanSpec*diff;
+    lit+=uC3*city*smoothstep(.35,.0,diff)*.85;
+  }
   gl_FragColor=vec4(lit,1.);
+}`;
+
+/* 제 1 행성의 구름층 */
+const CLOUD_FS = /* glsl */`uniform vec3 uSun; uniform float uTime; uniform float uSeed;
+varying vec3 vObj; varying vec3 vN; varying vec3 vW;
+${NOISE}
+void main(){
+  vec3 p=normalize(vObj);
+  vec3 q=p*2.2+vec3(uSeed); q.x+=.4*fbm(p*3.+uSeed);                      // 휘감기는 구름 띠
+  float c=smoothstep(.05,.45,fbm(q)+.25*fbm(q*3.1));
+  c*=1.-smoothstep(.9,1.,abs(p.y))*.5;
+  vec3 n=normalize(vN), L=normalize(uSun-vW);
+  float d=smoothstep(-.1,.6,dot(n,L));
+  gl_FragColor=vec4(vec3(.96,.97,1.)*(.08+.92*d),c*.85);
+}`;
+/* 무기의 금속 선체: 판 이음선 + 햇빛 + 하늘색 테두리광 */
+const HULL_VS = /* glsl */`varying vec3 vN; varying vec3 vW; varying vec3 vL;
+void main(){vL=position;vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;vN=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*viewMatrix*w;}`;
+const HULL_FS = /* glsl */`uniform vec3 uSun; uniform vec3 uC; uniform float uS;
+varying vec3 vN; varying vec3 vW; varying vec3 vL;
+void main(){
+  vec3 n=normalize(vN), L=normalize(uSun-vW), V=normalize(cameraPosition-vW);
+  vec3 g=abs(fract(vL*uS)-.5);                                              // 판 이음선
+  float seam=smoothstep(.47,.5,max(max(g.x,g.y),g.z));
+  float diff=max(dot(n,L),0.);
+  float spec=pow(max(dot(reflect(-L,n),V),0.),24.)*.5;
+  float rim=pow(1.-max(dot(n,V),0.),3.);
+  vec3 c=uC*(.18+.9*diff)*(1.-seam*.45)+vec3(1.,.96,.88)*spec+vec3(.3,.79,1.)*rim*.35;
+  gl_FragColor=vec4(c,1.);
 }`;
 
 /* 대기광: 뒷면 구에 테두리만 빛나게 */
@@ -367,91 +408,126 @@ export function createMap(container, hooks) {
     const r = b.radius;
     switch (b.look) {
       case "planet1": {
-        /* 그림을 다시 측정해(아래 조각 중심 · 반지름 기준) 어느 쪽에서 봐도 맞는 입체로 세운 구조
-           - 구가 중심보다 0.33R 위에서 비스듬히(오른쪽으로 올라가게) 잘려, 위 조각이 위로 0.36R · 왼쪽으로 0.13R 들려 있다
-           - 그 틈(두께 0.36R) 한가운데에 보랏빛 결정의 몸통이 끼어 있고, 앞쪽으로 세 갈래 날이 터져 나온다
-             오른쪽 날은 틈을 따라 밖으로, 왼쪽 아래 날은 아래 조각 앞을 덮으며, 위쪽 뿔은 위 조각 앞을 가로질러 솟는다
-           - 결정의 아랫가장자리가 녹아 아래 조각의 겉면을 따라 흘러내린다
-           - 둥근 파편 5개 */
+        /* 제 1 행성: 슈퍼 지구 + 궤도 무기
+           - 바다 · 대륙 · 극지 얼음 · 구름층 · 밤 쪽 도시 불빛 · 푸른 대기
+           - 궤도 방어 고리: 포대가 줄지어 박힌 기울어진 고리
+           - 궤도 주포: 행성 지름보다 긴 선형 가속포. 코일이 차례로 충전되어 주기적으로 빛줄기를 쏜다 */
         const face = new THREE.Group(); face.rotation.x = -0.89; g.add(face);      // 지도 카메라 쪽을 정면으로 (z = 앞, y = 위)
-        const N = new THREE.Vector3(-0.25, 0.92, 0.3).normalize(), D = 0.33, GAP = 0.36;
-        const halfMat = half => { const m = planetMaterial(1, "#7480be", "#8f9ad0", "#192462", "#9aa8ff", 3.1);
-          m.side = THREE.DoubleSide; m.uniforms.uCutN.value = N; m.uniforms.uCutD.value = D; m.uniforms.uHalf.value = half; return m; };
-        const sphereGeo = new THREE.SphereGeometry(r, 96, 64);
-        face.add(new THREE.Mesh(sphereGeo, halfMat(-1)));
-        const lift = v3(-0.13, 0.36, 0).multiplyScalar(r);                // 그림에서 잰 위 조각의 어긋남
-        const top = new THREE.Mesh(sphereGeo, halfMat(1)); top.position.copy(lift); face.add(top);
-        const at = atmosphere(r * 1.12, "#8e9cff", 4.2, 0.7); at.position.set(-0.06 * r, 0.18 * r, 0); face.add(at);
+        const body = new THREE.Group(); body.rotation.z = 0.32; face.add(body);   // 자전축 기울기
+        const earth = new THREE.Mesh(new THREE.SphereGeometry(r, 96, 64), planetMaterial(1, "#13385f", "#4f6b3a", "#ffd84a", "#8fd0ff", 3.1));
+        body.add(earth); spin.push([earth, 0.03]);
+        const clouds = new THREE.Mesh(new THREE.SphereGeometry(r * 1.018, 72, 48), new THREE.ShaderMaterial({
+          uniforms: { uSun: { value: SUN }, uTime: T, uSeed: { value: 5.3 }, uMode: { value: 0 } }, transparent: true, depthWrite: false,
+          vertexShader: PLANET_VS, fragmentShader: CLOUD_FS }));
+        body.add(clouds); spin.push([clouds, 0.045]);
+        face.add(atmosphere(r * 1.1, "#7fc8ff", 3.4, 1.3));
 
-        /* ── 결정 ── 모든 조각이 같은 재질을 쓴다 */
-        const cm = crystalMaterial("#7038c8", "#b88cf2", 1.3 * r);
-        const J = v3(0.04, 0.3, 1.0).multiplyScalar(r);                    // 세 날이 만나는 곳: 틈의 앞 어귀에 박혀 있다
-        cm.uniforms.uJ.value.set(J.x, J.y);
-        const facet = geo => { const g2 = geo.index ? geo.toNonIndexed() : geo; g2.computeVertexNormals(); return g2; };   // 면이 꺾이는 결정답게 각진 음영
-        /* 날 하나 = 마름모 단면을 끝으로 갈수록 좁히며 이어 붙인 결정 날. 가운데 능선이 앞을 향한다
-           tip: 끝점, bulge: 행성을 피해 앞으로 휘는 정도, wa/wb: 위/아래 반폭, h: 반두께, sharp: 끝으로 좁아지는 빠르기 */
-        const blade = (tip, bulge, wa, wb, h, sharp, drips) => {
-          const S = 48, pos = [], idx = [];
-          const ctrl = J.clone().lerp(tip, 0.5).add(v3(0, 0, bulge * r));
-          const at = t => { const u = 1 - t; return J.clone().multiplyScalar(u * u).add(ctrl.clone().multiplyScalar(2 * u * t)).add(tip.clone().multiplyScalar(t * t)); };
-          for (let i = 0; i <= S; i++) {
-            const t = i / S, p = at(t), d = at(Math.min(1, t + 0.01)).sub(at(Math.max(0, t - 0.01))).normalize();
-            const s = new THREE.Vector3().crossVectors(d, v3(0, 0, 1)).normalize().negate();   // 날의 위쪽 (화면 안에서 날에 수직)
-            const n = new THREE.Vector3().crossVectors(d, s).normalize();                       // 앞쪽 (카메라 쪽)
-            if (n.z < 0) n.negate();
-            const k = Math.pow(1 - t, sharp), hh = h * Math.pow(1 - t, 0.8) + 0.004;
-            const ridge = s.clone().multiplyScalar((wa - wb) * 0.25 * k * r);                   // 능선은 넓은 쪽으로 약간 치우친다
-            const ea = s.clone().multiplyScalar(wa * k * r), eb = s.clone().multiplyScalar(-wb * k * r);
-            if (drips) {                                                                         // 아래쪽 모서리가 녹아 방울져 흘러내린다
-              const low = s.y < 0 ? ea : eb, dn = drips(t);
-              if (dn > 0) { const q = p.clone().add(low), inward = q.clone().normalize().multiplyScalar(-dn * 0.45 * r);
-                low.add(v3(0, -dn * r, 0)).add(inward); }
-            }
-            [ea, n.clone().multiplyScalar(hh * r).add(ridge), eb, n.clone().multiplyScalar(-hh * r).add(ridge)]
-              .forEach(o => pos.push(p.x + o.x, p.y + o.y, p.z + o.z));
+        /* 금속 선체 · 빛 띠 재질 */
+        const hull = (c, scale) => new THREE.ShaderMaterial({ uniforms: { uSun: { value: SUN }, uC: { value: col(c) }, uS: { value: scale / r } },
+          vertexShader: HULL_VS, fragmentShader: HULL_FS });
+        const H1 = hull("#5a6274", 9), H2 = hull("#3a4150", 14);
+        const MINT = new THREE.MeshBasicMaterial({ color: new THREE.Color("#4cc9ff").multiplyScalar(1.6) });
+        const AMBER = new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffd84a").multiplyScalar(1.4) });
+
+        /* ── 궤도 방어 고리 ── */
+        const ring = new THREE.Group(); ring.rotation.set(1.22, 0.18, -0.28); face.add(ring);
+        const R1 = r * 1.5;
+        const torus = (rad, tube, mat, seg) => { const m = new THREE.Mesh(new THREE.TorusGeometry(rad, tube, 6, seg || 180), mat); ring.add(m); return m; };
+        torus(R1, r * 0.03, H1); torus(R1 - r * 0.075, r * 0.012, H2); torus(R1 + r * 0.075, r * 0.012, H2);
+        torus(R1 + r * 0.034, r * 0.005, MINT);                             // 바깥쪽 빛 띠
+        /* 모듈과 포대: 같은 모양은 한 번에 그린다 (InstancedMesh) */
+        const NM = 18, mod = new THREE.InstancedMesh(new THREE.BoxGeometry(r * 0.2, r * 0.07, r * 0.13), H1, NM);
+        const NT = 6, tur = new THREE.InstancedMesh(new THREE.CylinderGeometry(r * 0.045, r * 0.06, r * 0.05, 8), H2, NT);
+        const NB = NT * 2, bar = new THREE.InstancedMesh(new THREE.CylinderGeometry(r * 0.009, r * 0.012, r * 0.16, 6), H2, NB);
+        const NL = NM, lamp = new THREE.InstancedMesh(new THREE.BoxGeometry(r * 0.12, r * 0.006, r * 0.006), AMBER, NL);
+        const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), Sx = new THREE.Vector3(1, 1, 1), P0 = new THREE.Vector3();
+        const turrets = [];
+        for (let i = 0; i < NM; i++) {
+          const a = i / NM * Math.PI * 2, out = v3(Math.cos(a), Math.sin(a), 0);
+          Q.setFromAxisAngle(v3(0, 0, 1), a + Math.PI / 2);
+          mod.setMatrixAt(i, M4.compose(out.clone().multiplyScalar(R1), Q, Sx));
+          lamp.setMatrixAt(i, M4.compose(out.clone().multiplyScalar(R1).add(v3(0, 0, r * 0.068)), Q, Sx));
+          if (i % 3 === 0) {                                                  // 세 칸마다 포대 하나, 바깥을 겨눈다
+            const k = i / 3, base = out.clone().multiplyScalar(R1).add(v3(0, 0, r * 0.085));
+            tur.setMatrixAt(k, M4.compose(base, new THREE.Quaternion().setFromUnitVectors(v3(0, 1, 0), v3(0, 0, 1)), Sx));
+            turrets.push({ base, out, k });
           }
-          /* 네 면을 따로 이어 붙인다: 길이 방향으로는 매끈하고, 면과 면이 만나는 능선은 날카롭게 */
-          const out = [], oi = [];
-          for (let j = 0; j < 4; j++) {
-            const base = out.length / 3;
-            for (let i = 0; i <= S; i++) for (const jj of [j, (j + 1) % 4]) { const q = (i * 4 + jj) * 3; out.push(pos[q], pos[q + 1], pos[q + 2]); }
-            for (let i = 0; i < S; i++) { const a = base + i * 2, b = a + 1, c = a + 2, e = a + 3; oi.push(a, c, b, b, c, e); }
-          }
-          const g2 = new THREE.BufferGeometry(); g2.setAttribute("position", new THREE.Float32BufferAttribute(out, 3)); g2.setIndex(oi);
-          g2.computeVertexNormals(); return g2;
+        }
+        const aimQ = (out, t, k) => {                                         // 포신: 바깥 · 위쪽 사이를 천천히 훑는다
+          const sweep = Math.sin(t * 0.35 + k * 1.7) * 0.35;
+          const dir = out.clone().multiplyScalar(Math.cos(0.7 + sweep)).add(v3(0, 0, Math.sin(0.7 + sweep))).normalize();
+          return new THREE.Quaternion().setFromUnitVectors(v3(0, 1, 0), dir);
         };
-        const tips = { top: v3(-0.92, 1.32, 0.95), right: v3(1.77, 0.6, 0.12), low: v3(-1.69, -0.48, 0.18) };
-        /* 방울: t(날의 위치)마다 흘러내린 길이. 날 뿌리 쪽에서만, 길이를 달리해 불규칙하게 */
-        const dripper = list => t => { let v = 0; for (const [c, w, L] of list) { const x = (t - c) / w; if (Math.abs(x) < 1) v = Math.max(v, L * Math.pow(Math.cos(x * Math.PI / 2), 1.6)); } return v; };
-        [[tips.top, 0.15, 0.23, 0.2, 0.12, 1.0, null],                                        // 위쪽 뿔: 밑동이 넓은 세모꼴, 위 조각 앞을 지나도록 앞으로 휜다
-         [tips.right, 0.2, 0.15, 0.22, 0.12, 0.95, dripper([[0.1, 0.09, 0.06], [0.24, 0.08, 0.09], [0.38, 0.07, 0.05], [0.5, 0.06, 0.04]])],
-         [tips.low, 0.25, 0.2, 0.19, 0.12, 0.95, dripper([[0.1, 0.09, 0.08], [0.25, 0.08, 0.05], [0.38, 0.07, 0.07]])]
-        ].forEach(([tip, bulge, wa, wb, h, sh, dr]) => face.add(new THREE.Mesh(blade(tip.multiplyScalar(r), bulge, wa, wb, h, sh, dr), cm)));
-        /* 세 날이 만나는 심: 작고 납작한 다면체로 이음매만 감싼다 */
-        const hub = new THREE.Mesh(facet(new THREE.OctahedronGeometry(r, 0).scale(0.22, 0.18, 0.15)), cm);
-        hub.position.copy(J); hub.rotation.z = 0.3; face.add(hub);
-        /* 틈 속의 몸통: 두 조각 사이(가운데 면)에 낀 두꺼운 결정판. 앞쪽 날과 이어지고, 옆 · 뒤에서 보면 틈 사이로 보인다 */
-        const Uc = new THREE.Vector3(1, 0, 0).addScaledVector(N, -N.x).normalize(), Wc = new THREE.Vector3().crossVectors(N, Uc).normalize();
-        const coreC = N.clone().multiplyScalar((D + GAP * 0.5) * r);
-        const coreC2 = coreC.clone().addScaledVector(Wc, -0.12 * r);        // 앞쪽(날이 나온 쪽)으로 치우친다
-        const coreGeo = new THREE.IcosahedronGeometry(r, 4).scale(0.6, 0.6, 0.13);   // 틈 안쪽은 매끈하게 (앞에서는 거의 안 보인다)
-        { const pa = coreGeo.attributes.position; for (let k = 0; k < pa.count; k++) {   // 가장자리를 세 갈래로 살짝 뾰족하게 (날 방향)
-            const x = pa.getX(k), y = pa.getY(k), a = Math.atan2(y, x), f = 1 + 0.14 * Math.cos(3 * a + 0.6);
-            pa.setX(k, x * f); pa.setY(k, y * f); } coreGeo.computeVertexNormals(); }
-        const core = new THREE.Mesh(coreGeo, cm);
-        core.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(Uc, Wc, N)); core.position.copy(coreC2); face.add(core);
-        /* 둥근 파편 (측정 위치·크기) */
-        const rockMat = planetMaterial(4, "#7480be", "#8f9ad0", "#000000", "#9aa8ff", 1.3);
-        [[1.18,-0.03,0.08,0.35],[-0.83,-0.61,0.065,0.4],[-1.28,0.05,0.05,0.3],[-1.03,-0.57,0.03,0.45],[0.91,0.77,0.028,0.25]].forEach(([x, y, sz, z], i) => {
-          const geo = new THREE.IcosahedronGeometry(sz * r * 1.4, 2), pa = geo.attributes.position, v = new THREE.Vector3();
-          for (let k = 0; k < pa.count; k++) {                            // 조약돌처럼 둥글게 일그러뜨린다
-            v.fromBufferAttribute(pa, k); const w = 1 + 0.22 * Math.sin(v.x * 9 + i) * Math.cos(v.y * 7 - i) + 0.12 * Math.sin(v.z * 11);
-            v.multiplyScalar(w); v.y *= 0.8; pa.setXYZ(k, v.x, v.y, v.z);
+        const aimTurrets = t => {
+          for (const { base, out, k } of turrets) {
+            const q = aimQ(out, t, k), dir = v3(0, 1, 0).applyQuaternion(q), side = new THREE.Vector3().crossVectors(dir, v3(0, 0, 1)).normalize().multiplyScalar(r * 0.022);
+            for (const sgn of [-1, 1]) bar.setMatrixAt(k * 2 + (sgn > 0 ? 1 : 0), M4.compose(base.clone().add(v3(0, 0, r * 0.025)).add(dir.clone().multiplyScalar(r * 0.09)).addScaledVector(side, sgn), q, Sx));
           }
-          geo.computeVertexNormals();
-          const m = new THREE.Mesh(geo, rockMat); m.position.set(x * r, y * r, z * r); face.add(m);
-          const sp = 0.15 + Math.random() * 0.3, base = m.position.clone(), ax = v3(Math.random(), Math.random(), Math.random()).normalize();
-          tick.push(t => { m.rotateOnAxis(ax, 0.01 * sp); m.position.y = base.y + Math.sin(t * sp + i) * 0.03 * r; });
+          bar.instanceMatrix.needsUpdate = true;
+        };
+        aimTurrets(0);
+        ring.add(mod, tur, bar, lamp);
+        tick.push(t => { ring.rotation.z = -0.28 + t * 0.02; aimTurrets(t); });
+
+        /* ── 궤도 주포 ── */
+        const gun = new THREE.Group(); face.add(gun);
+        gun.position.set(-1.3 * r, 1.12 * r, 0.25 * r);
+        gun.quaternion.setFromUnitVectors(v3(0, 1, 0), v3(0.95, 0.24, -0.2).normalize());   // 행성 위에 가로로 떠서 오른쪽 위 우주를 겨눈다 (옆모습이 보이게)
+        const L = r * 2.3;
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.07, r * 0.085, L, 6), H1); barrel.position.y = L * 0.5; gun.add(barrel);
+        for (const sx of [-1, 1]) {                                           // 양옆의 가속 레일
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(r * 0.03, L * 0.92, r * 0.05), H2); rail.position.set(sx * r * 0.13, L * 0.5, 0); gun.add(rail);
+          const strip = new THREE.Mesh(new THREE.BoxGeometry(r * 0.006, L * 0.9, r * 0.006), MINT); strip.position.set(sx * r * 0.13, L * 0.5, r * 0.028); gun.add(strip);
+        }
+        const NC = 14, coilGeo = new THREE.TorusGeometry(r * 0.17, r * 0.028, 6, 6);   // 육각 코일
+        const coils = new THREE.InstancedMesh(coilGeo, H1, NC), glowC = new THREE.InstancedMesh(new THREE.TorusGeometry(r * 0.17, r * 0.012, 4, 6),
+          new THREE.MeshBasicMaterial({ color: 0xffffff }), NC);
+        const qc = new THREE.Quaternion().setFromAxisAngle(v3(1, 0, 0), Math.PI / 2);
+        for (let i = 0; i < NC; i++) {
+          const y = L * (0.12 + 0.8 * i / (NC - 1));
+          coils.setMatrixAt(i, M4.compose(v3(0, y, 0), qc, Sx));
+          glowC.setMatrixAt(i, M4.compose(v3(0, y, 0), qc, v3(1.03, 1.03, 1.03)));
+          glowC.setColorAt(i, new THREE.Color(0, 0, 0));
+        }
+        gun.add(coils, glowC);
+        /* 뒤쪽 동력부: 육면체 틀 + 노랗게 빛나는 다면체 노심 + 펼친 방열판 */
+        const block = new THREE.Mesh(new THREE.BoxGeometry(r * 0.42, r * 0.34, r * 0.3), H2); block.position.y = -r * 0.12; gun.add(block);
+        const coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffd84a").multiplyScalar(1.2) });
+        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(r * 0.1, 0), coreMat); core.position.set(0, -r * 0.12, r * 0.17); gun.add(core);
+        for (const [sx, a] of [[-1, 0.5], [1, -0.5], [-1, 0.15], [1, -0.15]]) {
+          const fin = new THREE.Group(); fin.position.set(sx * r * 0.21, -r * 0.12, 0); fin.rotation.z = a; gun.add(fin);
+          const panel = new THREE.Mesh(new THREE.BoxGeometry(r * 0.5, r * 0.11, r * 0.012), H1); panel.position.x = sx * r * 0.26; fin.add(panel);
+          const edge = new THREE.Mesh(new THREE.BoxGeometry(r * 0.46, r * 0.006, r * 0.014), AMBER); edge.position.set(sx * r * 0.26, r * 0.05, 0); fin.add(edge);
+        }
+        /* 포구: 나팔처럼 벌어진 고리 + 충전되는 빛 */
+        const HM = hull("#5a6274", 9); HM.side = THREE.DoubleSide;
+        const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.16, r * 0.09, r * 0.16, 6, 1, true), HM); muzzle.position.y = L + r * 0.04; gun.add(muzzle);
+        const flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture("rgba(255,255,255,1)", "rgba(255,216,74,0.55)"), color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+        flare.position.y = L + r * 0.12; flare.scale.setScalar(r * 0.6); gun.add(flare);
+        /* 발사 빛줄기: 서서히 밝아졌다 사라진다 (번쩍이지 않게) */
+        const beamMat = new THREE.ShaderMaterial({ uniforms: { uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+          vertexShader: `varying vec2 vU; void main(){vU=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+          fragmentShader: `uniform float uA; varying vec2 vU;
+            void main(){float x=abs(vU.x-.5)*2.; float core=exp(-x*x*18.); float halo=exp(-x*x*3.)*.35; float along=smoothstep(0.,.04,vU.y)*(1.-smoothstep(.55,1.,vU.y));
+              gl_FragColor=vec4(mix(vec3(1.,.85,.35),vec3(1.,.98,.9),core)*(core+halo)*along*uA,1.);}` });
+        const beam = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.05, r * 0.05, r * 14, 10, 1, true), beamMat);
+        beam.geometry.translate(0, r * 7, 0); beam.position.y = L + r * 0.1; gun.add(beam);
+        const CYC = 11, cc = new THREE.Color(), cMint = new THREE.Color("#4cc9ff"), cY = new THREE.Color("#ffd84a");
+        tick.push(t => {
+          const ph = (t % CYC) / CYC;                                         // 0~0.7 충전, 0.7~0.8 발사, 이후 식음
+          const charge = REDUCED ? 0.4 : Math.min(1, ph / 0.7);
+          for (let i = 0; i < NC; i++) {                                      // 코일이 뒤에서 앞으로 차례로 켜진다
+            const on = Math.min(1, Math.max(0, charge * NC * 1.1 - i)), cool = ph > 0.8 ? Math.max(0, 1 - (ph - 0.8) / 0.2) : 1;
+            cc.copy(cMint).lerp(cY, charge * charge).multiplyScalar(on * cool * 1.6 + 0.08);
+            glowC.setColorAt(i, cc);
+          }
+          glowC.instanceColor.needsUpdate = true;
+          const fire = REDUCED ? 0 : ph < 0.7 ? 0 : ph < 0.74 ? (ph - 0.7) / 0.04 : Math.max(0, 1 - (ph - 0.74) / 0.12);
+          beamMat.uniforms.uA.value = fire * 1.1;
+          flare.material.opacity = Math.min(1, charge * charge * 0.8 + fire * 0.4);
+          flare.scale.setScalar(r * (0.35 + 0.4 * charge + 0.3 * fire));
+          core.scale.setScalar(0.85 + 0.15 * Math.sin(t * 3));
+          gun.position.y = 1.12 * r + Math.sin(t * 0.4) * 0.03 * r;
         });
         /* 노란 궤도 (2번째 그림) — 위성은 'moon'에서 이 궤도 위에 올린다 */
         const orbit = new THREE.Group(); orbit.rotation.set(0.32, 0.4, -0.18); g.add(orbit);
